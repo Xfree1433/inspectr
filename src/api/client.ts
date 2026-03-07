@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -101,6 +101,6 @@ export const api = {
   deleteDocument: (id: string) =>
     request<{ ok: boolean }>(`/api/documents/${id}`, { method: 'DELETE' }),
 
-  getReport: (inspectionId: string) => request<import('../types').ReportGroup[]>(`/api/inspections/${inspectionId}/report`),
+  getReport: (inspectionId: string) => request<Record<string, unknown>>(`/api/inspections/${inspectionId}/report`),
   submitReport: (inspectionId: string) => request<{ status: string }>(`/api/inspections/${inspectionId}/submit`, { method: 'POST' }),
 };

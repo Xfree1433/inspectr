@@ -1,11 +1,26 @@
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuid } from 'uuid';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { existsSync } from 'fs';
 import db from './db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const distPath = join(__dirname, '..', 'dist');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Serve production frontend build if it exists
+if (existsSync(distPath)) {
+  console.log(`Serving static files from ${distPath}`);
+  app.use(express.static(distPath));
+} else {
+  console.log(`No dist/ found at ${distPath} — running API-only mode`);
+}
 
 // ── Helper: get template checklist from DB ──
 function getTemplateChecklist(templateId) {
@@ -610,5 +625,12 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
+// SPA fallback — serve index.html for non-API routes in production
+if (existsSync(distPath)) {
+  app.get('{*path}', (_req, res) => {
+    res.sendFile(join(distPath, 'index.html'));
+  });
+}
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`INSPECTR API running on :${PORT}`));
+app.listen(PORT, () => console.log(`INSPECTR running on http://localhost:${PORT}`));

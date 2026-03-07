@@ -68,9 +68,9 @@ export function SettingsModal({ open, onClose }: Props) {
 
   const startEdit = (item: Company | Inspector | Site | Template) => {
     setEditId(item.id);
-    if (tab === 'companies') setForm({ name: item.name, contact: item.contact || '', phone: item.phone || '' });
-    else if (tab === 'inspectors') setForm({ name: item.name, initials: item.initials || '', email: (item as Inspector).email || '', phone: (item as Inspector).phone || '', companyId: (item as Inspector).companyId || '' });
-    else if (tab === 'sites') setForm({ name: item.name, contactName: (item as Site).contactName || '', contactPhone: (item as Site).contactPhone || '', address: (item as Site).address || '', lat: (item as Site).lat != null ? String((item as Site).lat) : '', lng: (item as Site).lng != null ? String((item as Site).lng) : '' });
+    if (tab === 'companies') { const c = item as Company; setForm({ name: c.name, contact: c.contact || '', phone: c.phone || '' }); }
+    else if (tab === 'inspectors') { const i = item as Inspector; setForm({ name: i.name, initials: i.initials || '', email: i.email || '', phone: i.phone || '', companyId: i.companyId || '' }); }
+    else if (tab === 'sites') { const s = item as Site; setForm({ name: s.name, contactName: s.contactName || '', contactPhone: s.contactPhone || '', address: s.address || '', lat: s.lat != null ? String(s.lat) : '', lng: s.lng != null ? String(s.lng) : '' }); }
     else setForm({ name: item.name });
   };
 
@@ -547,7 +547,7 @@ export function SettingsModal({ open, onClose }: Props) {
                           </div>
                         </div>
                         <div className="settings-item-actions">
-                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={() => isTemplateTab ? startEditTemplate(item as Template) : startEdit(item)}>Edit</button>
+                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={() => isTemplateTab ? startEditTemplate(item as Template) : startEdit(item as Company | Inspector | Site | Template)}>Edit</button>
                           <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', color: 'var(--fail)' }} onClick={() => handleDelete(item.id)}>Delete</button>
                         </div>
                       </div>

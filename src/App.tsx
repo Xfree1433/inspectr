@@ -15,6 +15,7 @@ import { ReportModal } from './components/ReportModal';
 import { ProfileModal } from './components/ProfileModal';
 import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
+import { DemoBanner } from './components/DemoBanner';
 import { SearchBar } from './components/SearchBar';
 import './styles/global.css';
 import './styles/layout.css';
@@ -39,6 +40,7 @@ function AppInner() {
   return (
     <>
       <ToastContainer />
+      {import.meta.env.VITE_DEMO && <DemoBanner />}
       <Header onNewInspection={() => setShowNewModal(true)} onOpenProfile={() => setShowProfileModal(true)} onOpenSettings={() => setShowSettingsModal(true)} onOpenHelp={() => setShowHelpModal(true)} />
       <SearchBar />
       <StatsBar />

@@ -38,7 +38,7 @@ export function ReportModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (open && activeInspection) {
-      api.getReport(activeInspection.id).then(setReport).catch(() => {});
+      api.getReport(activeInspection.id).then(d => setReport(d as unknown as ReportData)).catch(() => {});
     }
   }, [open, activeInspection]);
 
