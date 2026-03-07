@@ -141,33 +141,44 @@ db.exec(`
 // Seed data if empty
 const count = db.prepare('SELECT COUNT(*) as c FROM inspectors').get();
 if (count.c === 0) {
-  const insInspector = db.prepare('INSERT INTO inspectors (id, initials, name) VALUES (?, ?, ?)');
-  const insSite = db.prepare('INSERT INTO sites (id, name) VALUES (?, ?)');
+  const insInspector = db.prepare('INSERT INTO inspectors (id, initials, name, email, phone, company_id) VALUES (?, ?, ?, ?, ?, ?)');
+  const insSite = db.prepare('INSERT INTO sites (id, name, contact_name, contact_phone, address, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const insTmpl = db.prepare('INSERT INTO templates (id, icon, name, item_count) VALUES (?, ?, ?, ?)');
-  const insInsp = db.prepare('INSERT INTO inspections (id, site, type, score, status, inspector_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const insInsp = db.prepare('INSERT INTO inspections (id, site, type, score, status, inspector_id, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   const insFeed = db.prepare('INSERT INTO feed_events (id, time, color, html) VALUES (?, ?, ?, ?)');
 
   const seedAll = db.transaction(() => {
-    insInspector.run('mo', 'MO', 'M. Okafor');
-    insInspector.run('sr', 'SR', 'S. Ramos');
-    insInspector.run('tk', 'TK', 'T. Kimura');
-    insInspector.run('al', 'AL', 'A. Larsson');
-    insInspector.run('cb', 'CB', 'C. Balogun');
-    insInspector.run('jw', 'JW', 'J. Walsh');
-
+    // Companies
     const insCompany = db.prepare('INSERT INTO companies (id, name, contact, phone) VALUES (?, ?, ?, ?)');
-    insCompany.run('co-1', 'Metro Water Authority', 'J. Henderson', '555-0100');
-    insCompany.run('co-2', 'Coastal Transport Corp', 'R. Chen', '555-0200');
-    insCompany.run('co-3', 'GridCo Energy', 'D. Patel', '555-0300');
+    insCompany.run('co-1', 'Metro Water Authority', 'James Henderson', '(555) 010-0100');
+    insCompany.run('co-2', 'Coastal Transport Corp', 'Rachel Chen', '(555) 020-0200');
+    insCompany.run('co-3', 'GridCo Energy', 'Dev Patel', '(555) 030-0300');
+    insCompany.run('co-4', 'Apex Environmental Services', 'Maria Santos', '(555) 040-0400');
+    insCompany.run('co-5', 'Pacific Infrastructure Group', 'Tom Bradley', '(555) 050-0500');
 
-    const sites = [
-      'Riverside Pump Station #4', 'Harbor Bridge Section 7', 'Northgate Substation',
-      'Eastfield Water Treatment', 'Depot B — Bay 12', 'Terminal 3 Apron',
-      'Grid Substation West', 'Central Waste Facility', 'Bayview Treatment Plant',
-      'South Dock Warehouse B', 'Airport Taxiway Delta', 'Highway Interchange 12'
-    ];
-    sites.forEach((s, i) => insSite.run(`st-${1000 + i}`, s));
+    // Inspectors (with email, phone, company)
+    insInspector.run('mo', 'MO', 'Michael Okafor', 'm.okafor@metrowater.gov', '(555) 111-2001', 'co-1');
+    insInspector.run('sr', 'SR', 'Sofia Ramos', 's.ramos@coastaltransport.com', '(555) 111-2002', 'co-2');
+    insInspector.run('tk', 'TK', 'Takeshi Kimura', 't.kimura@gridcoenergy.com', '(555) 111-2003', 'co-3');
+    insInspector.run('al', 'AL', 'Anna Larsson', 'a.larsson@apexenviro.com', '(555) 111-2004', 'co-4');
+    insInspector.run('cb', 'CB', 'Chidi Balogun', 'c.balogun@pacificinfra.com', '(555) 111-2005', 'co-5');
+    insInspector.run('jw', 'JW', 'Jack Walsh', 'j.walsh@pacificinfra.com', '(555) 111-2006', 'co-5');
 
+    // Sites (with contact, address, coordinates)
+    insSite.run('st-1000', 'Riverside Pump Station #4', 'Dave Morton', '(555) 300-1000', '2401 River Rd, Sacramento, CA 95833', 38.5976, -121.5010);
+    insSite.run('st-1001', 'Harbor Bridge Section 7', 'Lisa Tran', '(555) 300-1001', '901 Harbor Bridge Dr, Corpus Christi, TX 78401', 27.8103, -97.3964);
+    insSite.run('st-1002', 'Northgate Substation', 'Frank Reeves', '(555) 300-1002', '7800 Northgate Blvd, Sacramento, CA 95834', 38.6128, -121.4490);
+    insSite.run('st-1003', 'Eastfield Water Treatment', 'Priya Sharma', '(555) 300-1003', '4500 Eastfield Ave, Mesquite, TX 75150', 32.7668, -96.5992);
+    insSite.run('st-1004', 'Depot B — Bay 12', 'Carlos Mendez', '(555) 300-1004', '1200 Industrial Pkwy, Hayward, CA 94545', 37.6313, -122.0957);
+    insSite.run('st-1005', 'Terminal 3 Apron', 'Nancy Keane', '(555) 300-1005', 'SFO Airport, San Francisco, CA 94128', 37.6213, -122.3790);
+    insSite.run('st-1006', 'Grid Substation West', 'Ray Cooper', '(555) 300-1006', '15200 W Grid Access Rd, Bakersfield, CA 93311', 35.3733, -119.0187);
+    insSite.run('st-1007', 'Central Waste Facility', 'Angela Brooks', '(555) 300-1007', '8900 Landfill Rd, Fresno, CA 93706', 36.7378, -119.7871);
+    insSite.run('st-1008', 'Bayview Treatment Plant', 'Oscar Diaz', '(555) 300-1008', '700 Phelps St, San Francisco, CA 94124', 37.7294, -122.3944);
+    insSite.run('st-1009', 'South Dock Warehouse B', 'Kim Nguyen', '(555) 300-1009', '3200 S Dock Ave, Long Beach, CA 90802', 33.7504, -118.2166);
+    insSite.run('st-1010', 'Airport Taxiway Delta', 'Steve Jarrett', '(555) 300-1010', 'LAX Airport, Los Angeles, CA 90045', 33.9416, -118.4085);
+    insSite.run('st-1011', 'Highway Interchange 12', 'Pat Sullivan', '(555) 300-1011', '', 36.1060, -120.0623);  // Remote — coords only
+
+    // Templates
     insTmpl.run('structural', '🏗', 'Structural', 24);
     insTmpl.run('electrical', '⚡', 'Electrical', 18);
     insTmpl.run('mechanical', '🔧', 'Mechanical', 21);
@@ -175,14 +186,15 @@ if (count.c === 0) {
     insTmpl.run('pavement', '🛣', 'Pavement', 12);
     insTmpl.run('facility', '🏭', 'Facility', 30);
 
-    insInsp.run('INS-0891', 'Riverside Pump Station #4', 'STRUCTURAL', 61, 'pending', 'mo', '2024-12-06T12:55:00');
-    insInsp.run('INS-0890', 'Harbor Bridge Section 7', 'CIVIL / BRIDGE', 94, 'pass', 'sr', '2024-12-06T13:10:00');
-    insInsp.run('INS-0889', 'Northgate Substation', 'ELECTRICAL', 41, 'fail', 'tk', '2024-12-06T11:30:00');
-    insInsp.run('INS-0888', 'Eastfield Water Treatment', 'PROCESS', 88, 'pass', 'al', '2024-12-06T10:50:00');
-    insInsp.run('INS-0887', 'Depot B — Bay 12', 'FACILITY', 76, 'pass', 'cb', '2024-12-06T09:10:00');
-    insInsp.run('INS-0886', 'Terminal 3 Apron', 'PAVEMENT', 55, 'fail', 'jw', '2024-12-06T08:30:00');
-    insInsp.run('INS-0885', 'Grid Substation West', 'ELECTRICAL', 91, 'pass', 'sr', '2024-12-05T14:00:00');
-    insInsp.run('INS-0884', 'Central Waste Facility', 'ENVIRONMENTAL', 83, 'pass', 'tk', '2024-12-05T11:00:00');
+    // Inspections
+    insInsp.run('INS-0891', 'Riverside Pump Station #4', 'STRUCTURAL', 61, 'pending', 'mo', 'co-1', '2024-12-06T12:55:00');
+    insInsp.run('INS-0890', 'Harbor Bridge Section 7', 'CIVIL / BRIDGE', 94, 'pass', 'sr', 'co-2', '2024-12-06T13:10:00');
+    insInsp.run('INS-0889', 'Northgate Substation', 'ELECTRICAL', 41, 'fail', 'tk', 'co-3', '2024-12-06T11:30:00');
+    insInsp.run('INS-0888', 'Eastfield Water Treatment', 'PROCESS', 88, 'pass', 'al', 'co-4', '2024-12-06T10:50:00');
+    insInsp.run('INS-0887', 'Depot B — Bay 12', 'FACILITY', 76, 'pass', 'cb', 'co-5', '2024-12-06T09:10:00');
+    insInsp.run('INS-0886', 'Terminal 3 Apron', 'PAVEMENT', 55, 'fail', 'jw', 'co-5', '2024-12-06T08:30:00');
+    insInsp.run('INS-0885', 'Grid Substation West', 'ELECTRICAL', 91, 'pass', 'sr', 'co-3', '2024-12-05T14:00:00');
+    insInsp.run('INS-0884', 'Central Waste Facility', 'ENVIRONMENTAL', 83, 'pass', 'tk', 'co-4', '2024-12-05T11:00:00');
 
     // Seed checklist for INS-0891
     const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
