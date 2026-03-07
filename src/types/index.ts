@@ -6,6 +6,10 @@ export interface Inspector {
   id: string;
   initials: string;
   name: string;
+  email: string;
+  phone: string;
+  companyId: string;
+  companyName?: string;
 }
 
 export interface Site {

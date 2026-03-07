@@ -12,9 +12,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   getStats: () => request<import('../types').Stats>('/api/stats'),
   getInspectors: () => request<import('../types').Inspector[]>('/api/inspectors'),
-  createInspector: (data: { name: string; initials?: string }) =>
+  createInspector: (data: { name: string; initials?: string; email?: string; phone?: string; companyId?: string }) =>
     request<import('../types').Inspector>('/api/inspectors', { method: 'POST', body: JSON.stringify(data) }),
-  updateInspector: (id: string, data: { name: string; initials?: string }) =>
+  updateInspector: (id: string, data: { name: string; initials?: string; email?: string; phone?: string; companyId?: string }) =>
     request<{ ok: boolean }>(`/api/inspectors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteInspector: (id: string) =>
     request<{ ok: boolean }>(`/api/inspectors/${id}`, { method: 'DELETE' }),

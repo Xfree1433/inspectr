@@ -12,7 +12,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS inspectors (
     id TEXT PRIMARY KEY,
     initials TEXT NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    email TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    company_id TEXT DEFAULT ''
   );
 
   CREATE TABLE IF NOT EXISTS sites (
@@ -110,10 +113,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_inspections_created ON inspections(created_at DESC);
 `);
 
-// Migration: add company_id column if it doesn't exist (for existing databases)
-try {
-  db.exec("ALTER TABLE inspections ADD COLUMN company_id TEXT REFERENCES companies(id)");
-} catch { /* column already exists */ }
+// Migration: add columns if they don't exist (for existing databases)
+try { db.exec("ALTER TABLE inspections ADD COLUMN company_id TEXT REFERENCES companies(id)"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE inspectors ADD COLUMN email TEXT DEFAULT ''"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE inspectors ADD COLUMN phone TEXT DEFAULT ''"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE inspectors ADD COLUMN company_id TEXT DEFAULT ''"); } catch { /* already exists */ }
 
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_check_groups_insp ON check_groups(inspection_id);

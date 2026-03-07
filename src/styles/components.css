@@ -400,6 +400,7 @@
 .report-id { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--lime); letter-spacing: 1px; margin-bottom: 4px; }
 .report-site { font-family: 'Inter', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: .5px; }
 .report-meta { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 12px; }
+.report-meta-secondary { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 400; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 12px; }
 .report-score-big { display: flex; align-items: center; gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .rsb-num { font-family: 'Inter', sans-serif; font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 .rsb-bar-wrap { flex: 1; }

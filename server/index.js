@@ -44,22 +44,31 @@ app.delete('/api/companies/:id', (req, res) => {
 });
 
 // ── Inspectors ──
+function mapInspector(r) {
+  return {
+    id: r.id, initials: r.initials, name: r.name,
+    email: r.email || '', phone: r.phone || '',
+    companyId: r.company_id || '', companyName: r.company_name || '',
+  };
+}
 app.get('/api/inspectors', (_req, res) => {
-  res.json(db.prepare('SELECT * FROM inspectors ORDER BY name').all());
+  const rows = db.prepare('SELECT i.*, c.name as company_name FROM inspectors i LEFT JOIN companies c ON i.company_id = c.id ORDER BY i.name').all();
+  res.json(rows.map(mapInspector));
 });
 app.post('/api/inspectors', (req, res) => {
-  const { name, initials } = req.body;
+  const { name, initials, email, phone, companyId } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const id = uuid().slice(0, 8);
   const init = initials?.trim().toUpperCase() || name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  db.prepare('INSERT INTO inspectors (id, initials, name) VALUES (?, ?, ?)').run(id, init, name.trim());
-  res.status(201).json({ id, initials: init, name: name.trim() });
+  db.prepare('INSERT INTO inspectors (id, initials, name, email, phone, company_id) VALUES (?, ?, ?, ?, ?, ?)').run(id, init, name.trim(), email?.trim() || '', phone?.trim() || '', companyId || '');
+  const row = db.prepare('SELECT i.*, c.name as company_name FROM inspectors i LEFT JOIN companies c ON i.company_id = c.id WHERE i.id = ?').get(id);
+  res.status(201).json(mapInspector(row));
 });
 app.patch('/api/inspectors/:id', (req, res) => {
-  const { name, initials } = req.body;
+  const { name, initials, email, phone, companyId } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const init = initials?.trim().toUpperCase() || name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  db.prepare('UPDATE inspectors SET name = ?, initials = ? WHERE id = ?').run(name.trim(), init, req.params.id);
+  db.prepare('UPDATE inspectors SET name = ?, initials = ?, email = ?, phone = ?, company_id = ? WHERE id = ?').run(name.trim(), init, email?.trim() || '', phone?.trim() || '', companyId || '', req.params.id);
   res.json({ ok: true });
 });
 app.delete('/api/inspectors/:id', (req, res) => {
@@ -170,10 +179,10 @@ app.get('/api/search', (req, res) => {
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
     LEFT JOIN companies c ON i.company_id = c.id
-    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ? OR c.name LIKE ?
+    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ? OR ins.email LIKE ? OR ins.phone LIKE ? OR c.name LIKE ?
     ORDER BY i.created_at DESC
     LIMIT 20
-  `).all(like, like, like, like, like);
+  `).all(like, like, like, like, like, like, like);
   res.json(rows.map(r => ({
     id: r.id,
     site: r.site,
@@ -366,9 +375,11 @@ app.get('/api/feed', (_req, res) => {
 // ── Report ──
 app.get('/api/inspections/:id/report', (req, res) => {
   const insp = db.prepare(`
-    SELECT i.*, ins.name as inspector_name
+    SELECT i.*, ins.name as inspector_name, ins.email as inspector_email, ins.phone as inspector_phone,
+           c.name as inspector_company
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
+    LEFT JOIN companies c ON ins.company_id = c.id
     WHERE i.id = ?
   `).get(req.params.id);
   if (!insp) return res.status(404).json({ error: 'Not found' });
@@ -397,6 +408,9 @@ app.get('/api/inspections/:id/report', (req, res) => {
     score: insp.score,
     status: insp.status,
     inspectorName: insp.inspector_name,
+    inspectorEmail: insp.inspector_email || '',
+    inspectorPhone: insp.inspector_phone || '',
+    inspectorCompany: insp.inspector_company || '',
     createdAt: insp.created_at,
     sections,
   });

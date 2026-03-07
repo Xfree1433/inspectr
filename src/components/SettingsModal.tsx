@@ -53,13 +53,13 @@ export function SettingsModal({ open, onClose }: Props) {
       return;
     }
     setEditId('new');
-    setForm(tab === 'companies' ? { name: '', contact: '', phone: '' } : tab === 'inspectors' ? { name: '', initials: '' } : { name: '' });
+    setForm(tab === 'companies' ? { name: '', contact: '', phone: '' } : tab === 'inspectors' ? { name: '', initials: '', email: '', phone: '', companyId: '' } : { name: '' });
   };
 
   const startEdit = (item: any) => {
     setEditId(item.id);
     if (tab === 'companies') setForm({ name: item.name, contact: item.contact || '', phone: item.phone || '' });
-    else if (tab === 'inspectors') setForm({ name: item.name, initials: item.initials || '' });
+    else if (tab === 'inspectors') setForm({ name: item.name, initials: item.initials || '', email: (item as Inspector).email || '', phone: (item as Inspector).phone || '', companyId: (item as Inspector).companyId || '' });
     else setForm({ name: item.name });
   };
 
@@ -238,7 +238,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
               {!isTemplateTab && editId === 'new' && (
                 <div className="settings-edit-row">
-                  {renderForm(tab, form, setForm)}
+                  {renderForm(tab, form, setForm, companies)}
                   <div className="settings-edit-actions">
                     <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
                     <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
@@ -256,7 +256,7 @@ export function SettingsModal({ open, onClose }: Props) {
                   <div key={item.id} className="settings-item">
                     {!isTemplateTab && editId === item.id ? (
                       <div className="settings-edit-row">
-                        {renderForm(tab, form, setForm)}
+                        {renderForm(tab, form, setForm, companies)}
                         <div className="settings-edit-actions">
                           <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
                           <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
@@ -271,6 +271,11 @@ export function SettingsModal({ open, onClose }: Props) {
                             <div className="settings-item-name">{item.name}</div>
                             {tab === 'companies' && (item as Company).contact && (
                               <div className="settings-item-sub">{(item as Company).contact}{(item as Company).phone ? ` · ${(item as Company).phone}` : ''}</div>
+                            )}
+                            {tab === 'inspectors' && (
+                              <div className="settings-item-sub">
+                                {[(item as Inspector).companyName, (item as Inspector).email, (item as Inspector).phone].filter(Boolean).join(' · ') || 'No details'}
+                              </div>
                             )}
                             {isTemplateTab && (
                               <div className="settings-item-sub">{(item as Template).count} checklist items</div>
@@ -298,7 +303,7 @@ export function SettingsModal({ open, onClose }: Props) {
   );
 }
 
-function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<string, string>) => void) {
+function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<string, string>) => void, companies: Company[] = []) {
   const set = (key: string, val: string) => setForm({ ...form, [key]: val });
   return (
     <div className="settings-form">
@@ -310,7 +315,15 @@ function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<
         </>
       )}
       {tab === 'inspectors' && (
-        <input className="fm-input" placeholder="Initials (auto-generated if blank)" value={form.initials || ''} onChange={e => set('initials', e.target.value)} style={{ maxWidth: 180 }} />
+        <>
+          <input className="fm-input" placeholder="Initials (auto-generated if blank)" value={form.initials || ''} onChange={e => set('initials', e.target.value)} style={{ maxWidth: 180 }} />
+          <input className="fm-input" placeholder="Email" type="email" value={form.email || ''} onChange={e => set('email', e.target.value)} />
+          <input className="fm-input" placeholder="Cell / Phone" type="tel" value={form.phone || ''} onChange={e => set('phone', e.target.value)} />
+          <select className="fm-input" title="Company" value={form.companyId || ''} onChange={e => set('companyId', e.target.value)}>
+            <option value="">— No company —</option>
+            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </>
       )}
     </div>
   );

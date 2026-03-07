@@ -10,6 +10,9 @@ interface ReportData {
   type: string;
   score: number;
   inspectorName: string;
+  inspectorEmail: string;
+  inspectorPhone: string;
+  inspectorCompany: string;
   createdAt: string;
   sections: { name: string; score: number; items: { text: string; status: string; note?: string }[] }[];
 }
@@ -109,7 +112,9 @@ export function ReportModal({ open, onClose }: Props) {
       `ID: ${report.id}`,
       `Site: ${report.site}`,
       `Type: ${report.type}`,
-      `Inspector: ${report.inspectorName}`,
+      `Inspector: ${report.inspectorName}${report.inspectorCompany ? ` — ${report.inspectorCompany}` : ''}`,
+      ...(report.inspectorEmail ? [`Email: ${report.inspectorEmail}`] : []),
+      ...(report.inspectorPhone ? [`Phone: ${report.inspectorPhone}`] : []),
       `Date: ${date}`,
       `Score: ${report.score}/100`,
       ``,
@@ -162,9 +167,15 @@ export function ReportModal({ open, onClose }: Props) {
             <div className="report-id">{report.id} · {report.type}</div>
             <div className="report-site">{report.site}</div>
             <div className="report-meta">
-              <span>Inspector: {report.inspectorName}</span>
+              <span>Inspector: {report.inspectorName}{report.inspectorCompany ? ` — ${report.inspectorCompany}` : ''}</span>
               <span>Date: {new Date(report.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
             </div>
+            {(report.inspectorEmail || report.inspectorPhone) && (
+              <div className="report-meta-secondary">
+                {report.inspectorEmail && <span>{report.inspectorEmail}</span>}
+                {report.inspectorPhone && <span>{report.inspectorPhone}</span>}
+              </div>
+            )}
             <div className="report-score-big">
               <div>
                 <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: .5, color: 'var(--text-ghost)', marginBottom: 4 }}>OVERALL SCORE</div>
@@ -223,7 +234,7 @@ export function ReportModal({ open, onClose }: Props) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-ghost)' }}>
-                {report.inspectorName?.toUpperCase()} · {new Date(report.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                {report.inspectorName?.toUpperCase()}{report.inspectorCompany ? ` · ${report.inspectorCompany.toUpperCase()}` : ''} · {new Date(report.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
               <button onClick={clearSig} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-ghost)', background: 'transparent', border: 'none', cursor: 'pointer', letterSpacing: .5 }}>CLEAR</button>
             </div>
