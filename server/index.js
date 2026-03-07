@@ -7,6 +7,190 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// ── Template Checklists ──
+const TEMPLATE_CHECKLISTS = {
+  structural: [
+    { name: 'Foundation & Substructure', items: [
+      'Foundation crack inspection (width, length, pattern)',
+      'Settlement or heaving assessment',
+      'Anchor bolt condition and torque check',
+      'Waterproofing / damp-proof membrane integrity',
+      'Soil erosion around footings',
+      'Pile cap condition (if applicable)',
+    ]},
+    { name: 'Superstructure', items: [
+      'Load-bearing wall plumb and alignment',
+      'Steel beam / column connection inspection',
+      'Weld quality visual check (cracks, porosity, undercut)',
+      'Concrete spalling or delamination',
+      'Reinforcement bar exposure / corrosion',
+      'Expansion joint condition and gap measurement',
+    ]},
+    { name: 'Roof & Envelope', items: [
+      'Roof membrane integrity and ponding',
+      'Flashing and coping condition',
+      'Parapet wall stability',
+      'Cladding / curtain wall fastener check',
+      'Window and door frame seal inspection',
+      'Gutter and downspout drainage flow test',
+    ]},
+    { name: 'Safety & Documentation', items: [
+      'Structural drawings current and on-site',
+      'Load rating signage posted',
+      'Shoring / bracing temporary works verified',
+      'Egress routes unobstructed',
+      'PPE compliance confirmed',
+      'Previous deficiency close-out verified',
+    ]},
+  ],
+  electrical: [
+    { name: 'Switchgear & Distribution', items: [
+      'Main breaker operation test',
+      'Bus bar torque and thermal scan',
+      'Arc flash labels current and visible',
+      'Switchgear enclosure condition (rust, damage)',
+      'Ground fault protection test',
+    ]},
+    { name: 'Wiring & Conduit', items: [
+      'Conduit support and fastener check',
+      'Wire insulation condition (cracking, discoloration)',
+      'Junction box covers secure and labeled',
+      'Cable tray fill ratio within limits',
+      'Conductor termination torque verification',
+    ]},
+    { name: 'Grounding & Bonding', items: [
+      'Ground rod resistance measurement',
+      'Bonding jumper continuity test',
+      'Equipment grounding conductor check',
+      'Lightning protection system inspection',
+    ]},
+    { name: 'Controls & Safety', items: [
+      'Emergency stop function test',
+      'Control panel voltage readings recorded',
+      'GFCI / RCD trip test',
+      'Lockout/tagout devices in place',
+    ]},
+  ],
+  mechanical: [
+    { name: 'Rotating Equipment', items: [
+      'Motor vibration measurement',
+      'Bearing temperature and noise check',
+      'Belt / coupling alignment and tension',
+      'Shaft seal / packing gland inspection',
+      'Lubrication level and condition',
+    ]},
+    { name: 'Piping & Valves', items: [
+      'Pipe support and hanger condition',
+      'Valve operation test (open/close/throttle)',
+      'Flange bolt torque and gasket check',
+      'Expansion loop / bellows inspection',
+      'Pipe insulation and lagging condition',
+      'Pressure gauge calibration date verified',
+    ]},
+    { name: 'HVAC Systems', items: [
+      'Air handler unit filter condition',
+      'Ductwork joint seal and insulation',
+      'Thermostat calibration check',
+      'Refrigerant charge and leak test',
+      'Condensate drain flow and trap condition',
+    ]},
+    { name: 'Safety & Compliance', items: [
+      'Pressure relief valve tag and test date',
+      'Emergency shutoff valve accessibility',
+      'Machine guarding in place',
+      'Safety signage and placards current',
+      'Maintenance log up to date',
+    ]},
+  ],
+  environmental: [
+    { name: 'Air Quality', items: [
+      'Emissions monitoring equipment calibration',
+      'Stack / vent discharge visual inspection',
+      'Dust suppression measures in place',
+      'Odor complaint log reviewed',
+    ]},
+    { name: 'Water & Stormwater', items: [
+      'Outfall discharge sampling (pH, turbidity)',
+      'Stormwater BMP condition (silt fence, basins)',
+      'Spill prevention containment check',
+      'Dewatering discharge permit compliance',
+    ]},
+    { name: 'Waste & Hazmat', items: [
+      'Hazardous waste storage area condition',
+      'Container labeling and dating correct',
+      'Secondary containment integrity',
+      'Waste manifest documentation current',
+    ]},
+    { name: 'Ecological & Compliance', items: [
+      'Erosion and sediment control effectiveness',
+      'Protected species / habitat buffer verified',
+      'Environmental permit conditions posted',
+    ]},
+  ],
+  pavement: [
+    { name: 'Surface Condition', items: [
+      'Cracking survey (type, severity, extent)',
+      'Rutting depth measurement',
+      'Raveling / weathering assessment',
+      'Pothole identification and sizing',
+    ]},
+    { name: 'Structural Assessment', items: [
+      'Core sample thickness verification',
+      'Subgrade / base layer condition',
+      'Deflection testing results review',
+      'Joint / crack sealant condition',
+    ]},
+    { name: 'Drainage & Markings', items: [
+      'Surface drainage and cross-slope adequacy',
+      'Catch basin and inlet condition',
+      'Line striping reflectivity and visibility',
+      'Signage and delineator condition',
+    ]},
+  ],
+  facility: [
+    { name: 'Building Exterior', items: [
+      'Roof condition and drainage',
+      'Exterior wall and cladding inspection',
+      'Window and door seal integrity',
+      'Foundation visible crack check',
+      'Parking lot and walkway condition',
+      'Exterior lighting function test',
+    ]},
+    { name: 'Building Interior', items: [
+      'Floor surface condition and trip hazards',
+      'Ceiling tile and grid condition',
+      'Interior wall damage assessment',
+      'Door and hardware function test',
+      'Stairway handrail and tread check',
+    ]},
+    { name: 'MEP Systems', items: [
+      'HVAC system operation and filter check',
+      'Plumbing fixture and drain function',
+      'Electrical panel access clear (36″ clearance)',
+      'Emergency generator run test',
+      'Elevator / lift inspection tag current',
+      'Fire suppression system gauge check',
+    ]},
+    { name: 'Life Safety', items: [
+      'Fire extinguisher inspection tags current',
+      'Emergency exit signage illuminated',
+      'Egress routes clear and unobstructed',
+      'Smoke / CO detector function test',
+      'AED unit inspection and battery date',
+      'Emergency evacuation plan posted',
+    ]},
+    { name: 'Compliance & Documentation', items: [
+      'Occupancy permit current and posted',
+      'ADA accessibility compliance check',
+      'Hazmat / SDS binder location verified',
+      'Building maintenance log current',
+      'Pest control service log reviewed',
+      'Janitorial / sanitation schedule posted',
+      'Energy audit / utility meter reading recorded',
+    ]},
+  ],
+};
+
 // ── Inspectors ──
 app.get('/api/inspectors', (_req, res) => {
   res.json(db.prepare('SELECT * FROM inspectors').all());
@@ -60,36 +244,35 @@ app.get('/api/stats', (_req, res) => {
   const failures = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='fail'").get().c;
   const pending = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='pending'").get().c;
   const total = passed + failures + pending;
+  const today = new Date().toISOString().slice(0, 10);
+  const passedToday = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='pass' AND created_at >= ?").get(today).c;
+  const failuresToday = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='fail' AND created_at >= ?").get(today).c;
   res.json({
     passed,
     failures,
     pending,
     rate: total > 0 ? Math.round((passed / total) * 100) : 0,
-    passedToday: 12,
-    failuresToday: 4,
+    passedToday,
+    failuresToday,
   });
 });
 
 // ── Inspections ──
 app.get('/api/inspections', (req, res) => {
-  const status = req.query.status;
-  let rows;
-  if (status && status !== 'all') {
-    rows = db.prepare(`
-      SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name
-      FROM inspections i
-      LEFT JOIN inspectors ins ON i.inspector_id = ins.id
-      WHERE i.status = ?
-      ORDER BY i.created_at DESC
-    `).all(status);
-  } else {
-    rows = db.prepare(`
-      SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name
-      FROM inspections i
-      LEFT JOIN inspectors ins ON i.inspector_id = ins.id
-      ORDER BY i.created_at DESC
-    `).all();
-  }
+  const { status, from, to } = req.query;
+  const conditions = [];
+  const params = [];
+  if (status && status !== 'all') { conditions.push('i.status = ?'); params.push(status); }
+  if (from) { conditions.push('i.created_at >= ?'); params.push(from); }
+  if (to) { conditions.push('i.created_at <= ?'); params.push(to + 'T23:59:59'); }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = db.prepare(`
+    SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name
+    FROM inspections i
+    LEFT JOIN inspectors ins ON i.inspector_id = ins.id
+    ${where}
+    ORDER BY i.created_at DESC
+  `).all(...params);
   res.json(rows.map(r => ({
     id: r.id,
     site: r.site,
@@ -111,19 +294,27 @@ app.post('/api/inspections', (req, res) => {
 
   // Create checklist groups based on template
   if (templateId) {
-    const tmpl = db.prepare('SELECT name FROM templates WHERE id = ?').get(templateId);
-    if (tmpl) {
-      const gid = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, 0)').run(id, `${tmpl.name} Items`).lastInsertRowid;
-      const count = db.prepare('SELECT item_count as c FROM templates WHERE id = ?').get(templateId).c;
+    const groups = TEMPLATE_CHECKLISTS[templateId];
+    if (groups) {
+      const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
       const insItem = db.prepare('INSERT INTO check_items (id, group_id, text, status, sort_order) VALUES (?, ?, ?, ?, ?)');
-      for (let i = 0; i < Math.min(count, 10); i++) {
-        insItem.run(uuid(), gid, `${tmpl.name} check item ${i + 1}`, '', i);
-      }
+      groups.forEach((group, gi) => {
+        const gid = insGroup.run(id, group.name, gi).lastInsertRowid;
+        group.items.forEach((text, ii) => insItem.run(uuid(), gid, text, '', ii));
+      });
     }
   }
 
-  addFeedEvent('warn', `<strong>${id}</strong> — Created for <strong>${site}</strong>`);
+  addFeedEvent('warn', id, `Created for ${site}`);
   res.status(201).json({ id });
+});
+
+app.delete('/api/inspections/:id', (req, res) => {
+  const insp = db.prepare('SELECT * FROM inspections WHERE id = ?').get(req.params.id);
+  if (!insp) return res.status(404).json({ error: 'Not found' });
+  db.prepare('DELETE FROM inspections WHERE id = ?').run(req.params.id);
+  addFeedEvent('warn', req.params.id, 'Inspection deleted');
+  res.json({ ok: true });
 });
 
 // ── Checklist ──
@@ -160,13 +351,47 @@ app.post('/api/failures', (req, res) => {
     photos.forEach(p => insPhoto.run(uuid(), id, p));
   }
 
-  addFeedEvent('fail', `<strong>${inspectionId}</strong> — Failure flagged: <span class="tag-f">${title}</span>`);
+  addFeedEvent('fail', inspectionId, 'Failure flagged', title);
   res.status(201).json({ id });
+});
+
+app.get('/api/inspections/:id/failures', (req, res) => {
+  const rows = db.prepare(`
+    SELECT f.*, ins.name as assignee_name, ins.initials as assignee_initials
+    FROM failures f
+    LEFT JOIN inspectors ins ON f.assignee_id = ins.id
+    WHERE f.inspection_id = ?
+    ORDER BY f.created_at DESC
+  `).all(req.params.id);
+  const result = rows.map(r => {
+    const photos = db.prepare('SELECT data_url FROM failure_photos WHERE failure_id = ?').all(r.id).map(p => p.data_url);
+    return {
+      id: r.id,
+      title: r.title,
+      severity: r.severity,
+      description: r.description,
+      assigneeName: r.assignee_name,
+      assigneeInitials: r.assignee_initials,
+      dueDate: r.due_date,
+      referenceStandard: r.reference_standard,
+      createdAt: r.created_at,
+      photos,
+    };
+  });
+  res.json(result);
 });
 
 // ── Feed ──
 app.get('/api/feed', (_req, res) => {
-  res.json(db.prepare('SELECT * FROM feed_events ORDER BY time DESC LIMIT 50').all());
+  const rows = db.prepare('SELECT * FROM feed_events ORDER BY time DESC LIMIT 50').all();
+  res.json(rows.map(r => ({
+    id: r.id,
+    time: r.time,
+    color: r.color,
+    inspectionId: r.inspection_id || '',
+    message: r.message || '',
+    tag: r.tag || '',
+  })));
 });
 
 // ── Report ──
@@ -218,8 +443,8 @@ app.post('/api/inspections/:id/submit', (req, res) => {
   db.prepare('UPDATE inspections SET status = ? WHERE id = ?').run(newStatus, req.params.id);
   recalcScore(req.params.id);
 
-  const statusLabel = newStatus === 'pass' ? '<span class="tag-p">PASSED</span>' : '<span class="tag-f">FAILED</span>';
-  addFeedEvent(newStatus === 'pass' ? 'pass' : 'fail', `<strong>${req.params.id}</strong> — Inspection ${statusLabel} · Score ${insp.score}/100`);
+  const statusLabel = newStatus === 'pass' ? 'PASSED' : 'FAILED';
+  addFeedEvent(newStatus === 'pass' ? 'pass' : 'fail', req.params.id, `Inspection ${statusLabel}`, `Score ${insp.score}/100`);
 
   res.json({ status: newStatus });
 });
@@ -240,8 +465,8 @@ function recalcScore(inspectionId) {
   db.prepare('UPDATE inspections SET score = ? WHERE id = ?').run(score, inspectionId);
 }
 
-function addFeedEvent(color, html) {
-  db.prepare('INSERT INTO feed_events (id, time, color, html) VALUES (?, ?, ?, ?)').run(uuid(), new Date().toISOString(), color, html);
+function addFeedEvent(color, inspectionId, message, tag = '') {
+  db.prepare('INSERT INTO feed_events (id, time, color, inspection_id, message, tag) VALUES (?, ?, ?, ?, ?, ?)').run(uuid(), new Date().toISOString(), color, inspectionId, message, tag);
 }
 
 function formatTimeAgo(dateStr) {

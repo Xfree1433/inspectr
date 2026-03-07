@@ -77,8 +77,18 @@ db.exec(`
     id TEXT PRIMARY KEY,
     time TEXT DEFAULT (datetime('now')),
     color TEXT NOT NULL,
-    html TEXT NOT NULL
+    html TEXT NOT NULL DEFAULT '',
+    inspection_id TEXT DEFAULT '',
+    message TEXT DEFAULT '',
+    tag TEXT DEFAULT ''
   );
+
+  CREATE INDEX IF NOT EXISTS idx_inspections_status ON inspections(status);
+  CREATE INDEX IF NOT EXISTS idx_inspections_created ON inspections(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_check_groups_insp ON check_groups(inspection_id);
+  CREATE INDEX IF NOT EXISTS idx_check_items_group ON check_items(group_id);
+  CREATE INDEX IF NOT EXISTS idx_failures_insp ON failures(inspection_id);
+  CREATE INDEX IF NOT EXISTS idx_feed_time ON feed_events(time DESC);
 `);
 
 // Seed data if empty
@@ -145,14 +155,15 @@ if (count.c === 0) {
     insItem.run('ci-12', g3, 'PPE station stocked', '', '', 3);
     insItem.run('ci-13', g3, 'Spill kit inspection', '', '', 4);
 
-    insFeed.run('f-1', '14:22:11', 'fail', '<strong>INS-0891</strong> — Failure flagged: <span class="tag-f">Roof membrane delamination</span>');
-    insFeed.run('f-2', '14:19:04', 'pass', '<strong>INS-0890</strong> — Inspection <span class="tag-p">PASSED</span> · Score 94/100');
-    insFeed.run('f-3', '13:58:32', 'fail', '<strong>INS-0889</strong> — Inspection <span class="tag-f">FAILED</span> · 3 critical items');
-    insFeed.run('f-4', '13:44:50', 'warn', '<strong>INS-0891</strong> — Item completed: Emergency shutoff valve');
-    insFeed.run('f-5', '13:31:18', 'pass', '<strong>INS-0888</strong> — Inspection <span class="tag-p">PASSED</span> · Score 88/100');
-    insFeed.run('f-6', '12:55:00', 'warn', '<strong>INS-0891</strong> — Started by <strong>M. Okafor</strong>');
-    insFeed.run('f-7', '12:47:33', 'ghost', '<strong>INS-0887</strong> — Report submitted for review');
-    insFeed.run('f-8', '11:20:09', 'fail', '<strong>INS-0886</strong> — Inspection <span class="tag-f">FAILED</span> · Pavement cracking HIGH');
+    const insFeedNew = db.prepare('INSERT INTO feed_events (id, time, color, inspection_id, message, tag) VALUES (?, ?, ?, ?, ?, ?)');
+    insFeedNew.run('f-1', '14:22:11', 'fail', 'INS-0891', 'Failure flagged', 'Roof membrane delamination');
+    insFeedNew.run('f-2', '14:19:04', 'pass', 'INS-0890', 'Inspection PASSED', 'Score 94/100');
+    insFeedNew.run('f-3', '13:58:32', 'fail', 'INS-0889', 'Inspection FAILED', '3 critical items');
+    insFeedNew.run('f-4', '13:44:50', 'warn', 'INS-0891', 'Item completed', 'Emergency shutoff valve');
+    insFeedNew.run('f-5', '13:31:18', 'pass', 'INS-0888', 'Inspection PASSED', 'Score 88/100');
+    insFeedNew.run('f-6', '12:55:00', 'warn', 'INS-0891', 'Started by M. Okafor', '');
+    insFeedNew.run('f-7', '12:47:33', 'ghost', 'INS-0887', 'Report submitted for review', '');
+    insFeedNew.run('f-8', '11:20:09', 'fail', 'INS-0886', 'Inspection FAILED', 'Pavement cracking HIGH');
   });
 
   seedAll();

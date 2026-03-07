@@ -20,10 +20,13 @@ interface AppState {
   checklist: CheckGroup[];
   feed: FeedEvent[];
   filter: string;
+  dateFrom: string;
+  dateTo: string;
   activeTab: string;
   toasts: Toast[];
   isOnline: boolean;
   failBadgeCount: number;
+  loading: boolean;
 }
 
 interface AppActions {
@@ -34,6 +37,7 @@ interface AppActions {
   loadChecklist: (inspectionId: string) => Promise<void>;
   loadFeed: () => Promise<void>;
   setFilter: (f: string) => void;
+  setDateRange: (from: string, to: string) => void;
   setActiveTab: (tab: string) => void;
   toast: (msg: string, type?: ToastType, icon?: string) => void;
   incrementFailBadge: () => void;
@@ -52,10 +56,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [checklist, setChecklist] = useState<CheckGroup[]>([]);
   const [feed, setFeed] = useState<FeedEvent[]>([]);
   const [filter, setFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [activeTab, setActiveTab] = useState('list');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [failBadgeCount, setFailBadgeCount] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   const toast = useCallback((msg: string, type: ToastType = 't-info', icon: string = '•') => {
     const id = ++toastCounter;
@@ -75,15 +82,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { setStats(await api.getStats()); } catch { toast('Failed to load stats', 't-fail', '!'); }
   }, [toast]);
 
-  const loadInspections = useCallback(async (f?: string) => {
+  const loadInspections = useCallback(async (f?: string, from?: string, to?: string) => {
     try {
-      const data = await api.getInspections(f || filter);
+      const data = await api.getInspections(f ?? filter, from ?? (dateFrom || undefined), to ?? (dateTo || undefined));
       setInspections(data);
       if (!activeInspection && data.length > 0) {
         setActiveInspection(data[0]);
       }
     } catch { toast('Failed to load inspections', 't-fail', '!'); }
-  }, [filter, activeInspection, toast]);
+  }, [filter, dateFrom, dateTo, activeInspection, toast]);
 
   const loadInspectors = useCallback(async () => {
     try { setInspectors(await api.getInspectors()); } catch { /* quiet */ }
@@ -101,6 +108,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { setFeed(await api.getFeed()); } catch { /* quiet */ }
   }, []);
 
+  const setDateRange = useCallback((from: string, to: string) => {
+    setDateFrom(from);
+    setDateTo(to);
+    loadInspections(filter, from || undefined, to || undefined);
+  }, [filter, loadInspections]);
+
   const incrementFailBadge = useCallback(() => setFailBadgeCount(c => c + 1), []);
 
   const refreshAll = useCallback(async () => {
@@ -116,10 +129,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    loadStats();
-    loadInspections();
-    loadInspectors();
-    loadFeed();
+    Promise.all([loadStats(), loadInspections(), loadInspectors(), loadFeed()])
+      .finally(() => setLoading(false));
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -128,9 +139,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      stats, inspections, inspectors, activeInspection, checklist, feed, filter, activeTab, toasts, isOnline, failBadgeCount,
+      stats, inspections, inspectors, activeInspection, checklist, feed, filter, dateFrom, dateTo, activeTab, toasts, isOnline, failBadgeCount, loading,
       loadStats, loadInspections, loadInspectors, selectInspection, loadChecklist, loadFeed,
-      setFilter, setActiveTab, toast, incrementFailBadge, refreshAll,
+      setFilter, setDateRange, setActiveTab, toast, incrementFailBadge, refreshAll,
     }}>
       {children}
     </AppContext.Provider>

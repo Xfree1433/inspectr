@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface ReportData {
   id: string;
@@ -23,6 +24,7 @@ export function ReportModal({ open, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sigDrawing = useRef(false);
   const [sigStarted, setSigStarted] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (open && activeInspection) {
@@ -188,9 +190,23 @@ export function ReportModal({ open, onClose }: Props) {
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={onClose}>Close</button>
-          <button className="btn-lime" onClick={() => { toast('Report submitted for approval', 't-pass', '✓'); onClose(); }} style={{ marginLeft: 'auto' }}>Submit for Approval</button>
+          <button className="btn-lime" onClick={() => setShowConfirm(true)} style={{ marginLeft: 'auto' }}>Submit for Approval</button>
         </div>
       </div>
+      <ConfirmDialog
+        open={showConfirm}
+        title="Submit Report?"
+        message={`This will finalize inspection ${report.id} and submit it for approval. This action cannot be undone.`}
+        confirmLabel="Submit"
+        onConfirm={() => {
+          setShowConfirm(false);
+          api.submitReport(report.id).then(() => {
+            toast('Report submitted for approval', 't-pass', '✓');
+            onClose();
+          }).catch(() => toast('Failed to submit report', 't-fail', '!'));
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
     </div>
   );
 }

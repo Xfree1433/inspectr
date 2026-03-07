@@ -49,11 +49,26 @@ export interface FailureDetail {
   referenceStandard: string;
 }
 
+export interface FailureView {
+  id: string;
+  title: string;
+  severity: Severity;
+  description: string;
+  assigneeName: string | null;
+  assigneeInitials: string | null;
+  dueDate: string | null;
+  referenceStandard: string;
+  createdAt: string;
+  photos: string[];
+}
+
 export interface FeedEvent {
   id: string;
   time: string;
   color: string;
-  html: string;
+  inspectionId: string;
+  message: string;
+  tag: string;
 }
 
 export interface ReportGroup {

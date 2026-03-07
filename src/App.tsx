@@ -44,7 +44,7 @@ function AppInner() {
             </div>
             <div className="dright" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <div className="cl-col" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderBottom: '1px solid var(--border)' }}>
-                <Checklist onOpenFailModal={(title, id) => setFailModal({ open: true, title, checkItemId: id })} />
+                <Checklist onOpenFailModal={(title, id) => setFailModal({ open: true, title, checkItemId: id })} onOpenReport={() => setShowReportModal(true)} />
               </div>
               <div className="feed-col" style={{ height: 210, overflowY: 'auto', flexShrink: 0 }}>
                 <Feed />

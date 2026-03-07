@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
+import { ConfirmDialog } from './ConfirmDialog';
 import type { Severity } from '../types';
 
 interface Props {
@@ -19,6 +20,7 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
   const [dueDate, setDueDate] = useState('');
   const [refStandard, setRefStandard] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const [confirm, setConfirm] = useState<'log' | 'save' | null>(null);
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,10 +128,27 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-danger" onClick={handleLog}>Log Failure</button>
-          <button className="btn-lime" onClick={handleSave} style={{ marginLeft: 'auto' }}>Save & Assign</button>
+          <button className="btn-danger" onClick={() => setConfirm('log')}>Log Failure</button>
+          <button className="btn-lime" onClick={() => setConfirm('save')} style={{ marginLeft: 'auto' }}>Save & Assign</button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirm === 'log'}
+        title="Log Failure?"
+        message={`This will log "${title}" as a failure on this inspection. Continue?`}
+        confirmLabel="Log Failure"
+        confirmClass="btn-danger"
+        onConfirm={() => { setConfirm(null); handleLog(); }}
+        onCancel={() => setConfirm(null)}
+      />
+      <ConfirmDialog
+        open={confirm === 'save'}
+        title="Save & Assign Failure?"
+        message={`This will log "${title}" and assign remediation. Continue?`}
+        confirmLabel="Save & Assign"
+        onConfirm={() => { setConfirm(null); handleSave(); }}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }

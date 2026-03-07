@@ -15,10 +15,19 @@ export const api = {
   getSites: (q?: string) => request<import('../types').Site[]>(`/api/sites${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   getTemplates: () => request<import('../types').Template[]>('/api/templates'),
 
-  getInspections: (status?: string) => request<import('../types').Inspection[]>(`/api/inspections${status && status !== 'all' ? `?status=${status}` : ''}`),
+  getInspections: (status?: string, from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (status && status !== 'all') params.set('status', status);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    return request<import('../types').Inspection[]>(`/api/inspections${qs ? `?${qs}` : ''}`);
+  },
   searchInspections: (q: string) => request<import('../types').Inspection[]>(`/api/search?q=${encodeURIComponent(q)}`),
   createInspection: (data: { site: string; type: string; inspectorId: string; notes?: string; templateId?: string }) =>
     request<{ id: string }>('/api/inspections', { method: 'POST', body: JSON.stringify(data) }),
+  deleteInspection: (id: string) =>
+    request<{ ok: boolean }>(`/api/inspections/${id}`, { method: 'DELETE' }),
 
   getChecklist: (inspectionId: string) => request<import('../types').CheckGroup[]>(`/api/inspections/${inspectionId}/checklist`),
   updateCheckItem: (id: string, data: { status?: string; failNote?: string }) =>
@@ -26,6 +35,9 @@ export const api = {
 
   createFailure: (data: Partial<import('../types').FailureDetail> & { inspectionId: string }) =>
     request<{ id: string }>('/api/failures', { method: 'POST', body: JSON.stringify(data) }),
+
+  getFailures: (inspectionId: string) =>
+    request<import('../types').FailureView[]>(`/api/inspections/${inspectionId}/failures`),
 
   getFeed: () => request<import('../types').FeedEvent[]>('/api/feed'),
 

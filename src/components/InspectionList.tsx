@@ -1,8 +1,9 @@
 import { useApp } from '../context/AppContext';
 import { InspectionCard } from './InspectionCard';
+import { SkeletonList } from './Skeleton';
 
 export function InspectionList() {
-  const { inspections, activeInspection, filter, setFilter, selectInspection, loadInspections } = useApp();
+  const { inspections, activeInspection, filter, dateFrom, dateTo, loading, setFilter, setDateRange, selectInspection, loadInspections } = useApp();
 
   const handleFilter = (f: string) => {
     setFilter(f);
@@ -30,16 +31,42 @@ export function InspectionList() {
           </button>
         ))}
       </div>
+      <div className="date-filter">
+        <input
+          type="date"
+          className="date-input"
+          value={dateFrom}
+          onChange={e => setDateRange(e.target.value, dateTo)}
+          title="Filter from date"
+        />
+        <span className="date-sep">to</span>
+        <input
+          type="date"
+          className="date-input"
+          value={dateTo}
+          onChange={e => setDateRange(dateFrom, e.target.value)}
+          title="Filter to date"
+        />
+        {(dateFrom || dateTo) && (
+          <button className="date-clear" onClick={() => setDateRange('', '')} title="Clear date filter">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="2" y1="2" x2="12" y2="12" /><line x1="12" y1="2" x2="2" y2="12" />
+            </svg>
+          </button>
+        )}
+      </div>
       <div className="list-scroll">
-        {inspections.length === 0 ? (
+        {loading ? (
+          <SkeletonList count={5} />
+        ) : inspections.length === 0 ? (
           <div className="empty-state">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
             </svg>
             <div className="empty-state-title">No Inspections Found</div>
             <div className="empty-state-text">
-              {filter !== 'all'
-                ? `No ${filter} inspections. Try a different filter or create a new inspection.`
+              {filter !== 'all' || dateFrom || dateTo
+                ? 'No matching inspections. Try adjusting your filters or date range.'
                 : 'No inspections yet. Tap + NEW in the header to create your first field inspection.'}
             </div>
           </div>

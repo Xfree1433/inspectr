@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
+import { FailureListModal } from './FailureListModal';
 
-export function Checklist({ onOpenFailModal }: { onOpenFailModal: (title: string, checkItemId: string) => void }) {
+export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: (title: string, checkItemId: string) => void; onOpenReport?: () => void }) {
   const { activeInspection, checklist, loadChecklist, toast, incrementFailBadge, refreshAll } = useApp();
+  const [showFailures, setShowFailures] = useState(false);
 
   const { totalItems, doneItems, pct } = useMemo(() => {
     let total = 0, done = 0;
@@ -112,11 +114,18 @@ export function Checklist({ onOpenFailModal }: { onOpenFailModal: (title: string
           ))
         )}
         <div className="sub-bar">
+          <button className="btn-ghost" title="View logged failures" onClick={() => setShowFailures(true)}>FAILURES</button>
           <button className="btn-ghost" title="Flag this inspection for supervisor review" onClick={() => toast('Inspection flagged for review', 't-warn', '⚑')}>FLAG</button>
           <button className="btn-ghost" title="Save current progress as a draft" onClick={() => toast('Draft saved', 't-info', '✓')}>SAVE</button>
+          {onOpenReport && <button className="btn-ghost" title="View the full inspection report" onClick={onOpenReport}>VIEW REPORT</button>}
           <button className="btn-lime" style={{ flex: 2 }} title="Submit completed inspection for approval" onClick={handleSubmit}>SUBMIT REPORT</button>
         </div>
       </div>
+      <FailureListModal
+        open={showFailures}
+        inspectionId={activeInspection.id}
+        onClose={() => setShowFailures(false)}
+      />
     </div>
   );
 }

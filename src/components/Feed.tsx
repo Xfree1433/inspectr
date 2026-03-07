@@ -1,4 +1,5 @@
 import { useApp } from '../context/AppContext';
+import { SkeletonFeed } from './Skeleton';
 
 const colorMap: Record<string, string> = {
   pass: 'var(--lime)',
@@ -7,8 +8,14 @@ const colorMap: Record<string, string> = {
   ghost: 'var(--text-ghost)',
 };
 
+const tagClass: Record<string, string> = {
+  pass: 'tag-p',
+  fail: 'tag-f',
+  warn: 'tag-n',
+};
+
 export function Feed() {
-  const { feed } = useApp();
+  const { feed, loading } = useApp();
 
   return (
     <>
@@ -19,7 +26,9 @@ export function Feed() {
       <div className="section-hint">
         Live feed of all inspection activity — completions, failures, and status changes across your team.
       </div>
-      {feed.length === 0 ? (
+      {loading ? (
+        <SkeletonFeed count={6} />
+      ) : feed.length === 0 ? (
         <div className="empty-state">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
@@ -34,7 +43,17 @@ export function Feed() {
           <div key={event.id} className="feed-item" style={{ animationDelay: `${i * 0.05}s` }}>
             <div className="fdot" style={{ background: colorMap[event.color] || event.color }} />
             <div className="fb">
-              <div className="ft" dangerouslySetInnerHTML={{ __html: event.html }} />
+              <div className="ft">
+                {event.inspectionId && <strong>{event.inspectionId}</strong>}
+                {event.inspectionId && ' — '}
+                {event.message}
+                {event.tag && (
+                  <>
+                    {' · '}
+                    <span className={tagClass[event.color] || ''}>{event.tag}</span>
+                  </>
+                )}
+              </div>
               <div className="ftime">{event.time}</div>
             </div>
           </div>
