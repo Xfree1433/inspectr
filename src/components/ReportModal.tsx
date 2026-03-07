@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
+import { useProfile } from '../context/ProfileContext';
 import { api } from '../api/client';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -20,6 +21,7 @@ interface Props {
 
 export function ReportModal({ open, onClose }: Props) {
   const { activeInspection, toast } = useApp();
+  const { profile } = useProfile();
   const [report, setReport] = useState<ReportData | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sigDrawing = useRef(false);
@@ -121,9 +123,14 @@ export function ReportModal({ open, onClose }: Props) {
         if (item.note) lines.push(`         ^ ${item.note}`);
       }
     }
-    lines.push(``, `---`, `Sent from INSPECTR Field Ops`);
+    lines.push(``, `---`);
+    const sigParts: string[] = [];
+    if (profile.name) sigParts.push(profile.name);
+    if (profile.company) sigParts.push(profile.company);
+    lines.push(sigParts.length > 0 ? `${sigParts.join(' | ')} — via INSPECTR Field Ops` : 'Sent from INSPECTR Field Ops');
     const body = lines.join('\n');
-    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
+    const mailTo = profile.email ? `mailto:?from=${encodeURIComponent(profile.email)}&` : 'mailto:?';
+    window.open(`${mailTo}subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
   };
 
   if (!open || !report) return null;
@@ -220,6 +227,13 @@ export function ReportModal({ open, onClose }: Props) {
               </span>
               <button onClick={clearSig} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-ghost)', background: 'transparent', border: 'none', cursor: 'pointer', letterSpacing: .5 }}>CLEAR</button>
             </div>
+            {(profile.name || profile.company) && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12, fontWeight: 500, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                {profile.name && <div>{profile.name}</div>}
+                {profile.company && <div>{profile.company}</div>}
+                {profile.email && <div style={{ color: 'var(--text-ghost)' }}>{profile.email}</div>}
+              </div>
+            )}
           </div>
         </div>
         <div className="modal-foot">

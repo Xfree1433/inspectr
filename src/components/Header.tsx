@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
+import { useProfile } from '../context/ProfileContext';
 
-export function Header({ onNewInspection }: { onNewInspection: () => void }) {
+export function Header({ onNewInspection, onOpenProfile }: { onNewInspection: () => void; onOpenProfile: () => void }) {
   const { isOnline } = useApp();
   const { theme, toggleTheme } = useTheme();
+  const { profile, isProfileSet } = useProfile();
   const [clock, setClock] = useState('--:--:--');
 
   useEffect(() => {
@@ -28,6 +30,12 @@ export function Header({ onNewInspection }: { onNewInspection: () => void }) {
           <div className="ldot" />LIVE
         </div>
         <div className="hdr-clock">{clock}</div>
+        <button className="profile-btn" onClick={onOpenProfile} title={isProfileSet ? `${profile.name}${profile.company ? ` - ${profile.company}` : ''}` : 'Set up your profile'}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          {!isProfileSet && <div className="profile-dot" />}
+        </button>
         <button className="theme-toggle" onClick={toggleTheme} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
           {theme === 'dark' ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
