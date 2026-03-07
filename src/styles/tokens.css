@@ -2,24 +2,24 @@
    DESIGN TOKENS — LIGHT (default)
 ══════════════════════════════════════ */
 :root, [data-theme="light"] {
-  --lime: #1B7D2F;
-  --lime-dim: #2A8E3E;
-  --lime-glow: rgba(27, 125, 47, .08);
-  --bg: #F4F5F7;
+  --lime: #156B26;
+  --lime-dim: #1E8233;
+  --lime-glow: rgba(21, 107, 38, .10);
+  --bg: #F2F3F5;
   --surface: #FFFFFF;
-  --surface2: #F0F1F3;
-  --surface3: #E4E5E9;
-  --border: #D1D3D9;
-  --border-hi: #B8BBC2;
-  --text: #1A1D23;
-  --text-dim: #5F6368;
-  --text-ghost: #9AA0A6;
-  --pass: #1B7D2F;
-  --fail: #D93025;
-  --warn: #E37400;
-  --fail-bg: rgba(217, 48, 37, .08);
-  --pass-bg: rgba(27, 125, 47, .08);
-  --warn-bg: rgba(227, 116, 0, .08);
+  --surface2: #EDEEF0;
+  --surface3: #E0E1E5;
+  --border: #C4C7CD;
+  --border-hi: #A8ACB4;
+  --text: #111318;
+  --text-dim: #3D4249;
+  --text-ghost: #6B7280;
+  --pass: #156B26;
+  --fail: #C5221F;
+  --warn: #CC6600;
+  --fail-bg: rgba(197, 34, 31, .10);
+  --pass-bg: rgba(21, 107, 38, .10);
+  --warn-bg: rgba(204, 102, 0, .10);
   --sb: env(safe-area-inset-bottom, 0px);
   --st: env(safe-area-inset-top, 0px);
   --hh: 56px;
