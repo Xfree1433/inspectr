@@ -138,6 +138,8 @@
 .crow-body { flex: 1; min-width: 0; }
 .crow-text { font-size: 15px; color: var(--text); line-height: 1.4; }
 .crow.done .crow-text { color: var(--text-ghost); text-decoration: line-through; text-decoration-color: var(--text-ghost); }
+.crow.na .cbox { background: var(--surface3); border-color: var(--border-hi); }
+.crow.na .crow-text { color: var(--text-ghost); font-style: italic; }
 
 .fail-note {
   font-family: 'Inter', sans-serif;
@@ -169,6 +171,7 @@
 }
 .act:active { transform: scale(.92); }
 .act-p:active, .act-p.on { border-color: var(--lime); color: var(--lime); background: var(--lime-glow); }
+.act-na:active, .act-na.on { border-color: var(--border-hi); color: var(--text-ghost); background: var(--surface3); }
 .act-f:active, .act-f.on { border-color: var(--fail); color: var(--fail); background: var(--fail-bg); }
 
 .sub-bar {
@@ -659,6 +662,39 @@
 .failure-item-body { padding: 0 16px 16px; }
 .failure-photos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .failure-photo { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.failure-item.rem-closed { opacity: .5; }
+.failure-item.rem-closed .failure-item-title { text-decoration: line-through; }
+
+/* ══ REMEDIATION STATUS ══ */
+.rem-status-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.rem-step {
+  flex: 1;
+  padding: 8px 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.rem-step:hover { background: var(--surface2); }
+.rem-step.active { background: var(--lime-bg); color: var(--lime); border-color: var(--lime); }
+.rem-step.current { font-weight: 700; }
 .badge.bw { background: var(--warn-bg); color: var(--warn); }
 
 /* ══ SKELETONS ══ */

@@ -100,7 +100,9 @@ export function ReportModal({ open, onClose }: Props) {
   if (!open || !report) return null;
 
   const scoreColor = report.score >= 80 ? 'var(--lime)' : report.score >= 60 ? 'var(--warn)' : 'var(--fail)';
-  const totalItems = report.sections.reduce((a, s) => a + s.items.length, 0);
+  const allItems = report.sections.reduce((a, s) => a + s.items.length, 0);
+  const naItems = report.sections.reduce((a, s) => a + s.items.filter(i => i.status === 'na').length, 0);
+  const totalItems = allItems - naItems;
   const passedItems = report.sections.reduce((a, s) => a + s.items.filter(i => i.status === 'pass').length, 0);
   const failedItems = report.sections.reduce((a, s) => a + s.items.filter(i => i.status === 'fail').length, 0);
   const pendingItems = totalItems - passedItems - failedItems;
@@ -155,9 +157,11 @@ export function ReportModal({ open, onClose }: Props) {
                 {group.items.map((item, i) => (
                   <div key={i}>
                     <div className="rs-item">
-                      <div className="rs-dot" style={{ background: item.status === 'pass' ? 'var(--lime)' : item.status === 'fail' ? 'var(--fail)' : 'var(--border-hi)' }} />
-                      <div className="rs-text">{item.text}</div>
-                      {item.status !== 'pending' ? (
+                      <div className="rs-dot" style={{ background: item.status === 'pass' ? 'var(--lime)' : item.status === 'fail' ? 'var(--fail)' : item.status === 'na' ? 'var(--text-ghost)' : 'var(--border-hi)' }} />
+                      <div className="rs-text" style={item.status === 'na' ? { color: 'var(--text-ghost)', fontStyle: 'italic' } : undefined}>{item.text}</div>
+                      {item.status === 'na' ? (
+                        <span className="badge bn">N/A</span>
+                      ) : item.status !== 'pending' ? (
                         <span className={`badge ${item.status === 'pass' ? 'bp' : 'bf'}`}>{item.status.toUpperCase()}</span>
                       ) : (
                         <span style={{ fontSize: 12, color: 'var(--text-ghost)' }}>–</span>

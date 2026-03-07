@@ -1,5 +1,5 @@
 export type InspectionStatus = 'pass' | 'fail' | 'pending';
-export type CheckItemStatus = 'done' | 'failed' | '';
+export type CheckItemStatus = 'done' | 'failed' | 'na' | '';
 export type Severity = 'low' | 'med' | 'high';
 
 export interface Inspector {
@@ -49,6 +49,8 @@ export interface FailureDetail {
   referenceStandard: string;
 }
 
+export type RemediationStatus = 'open' | 'in-progress' | 'verified' | 'closed';
+
 export interface FailureView {
   id: string;
   title: string;
@@ -58,6 +60,7 @@ export interface FailureView {
   assigneeInitials: string | null;
   dueDate: string | null;
   referenceStandard: string;
+  remediationStatus: RemediationStatus;
   createdAt: string;
   photos: string[];
 }

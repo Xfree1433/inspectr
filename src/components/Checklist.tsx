@@ -10,8 +10,11 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
   const { totalItems, doneItems, pct } = useMemo(() => {
     let total = 0, done = 0;
     checklist.forEach(g => {
-      total += g.items.length;
-      done += g.items.filter(i => i.status === 'done' || i.status === 'failed').length;
+      g.items.forEach(i => {
+        if (i.status === 'na') return;
+        total++;
+        if (i.status === 'done' || i.status === 'failed') done++;
+      });
     });
     return { totalItems: total, doneItems: done, pct: total > 0 ? Math.round(done / total * 100) : 0 };
   }, [checklist]);
@@ -34,6 +37,12 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
     await api.updateCheckItem(itemId, { status: 'done' });
     if (navigator.vibrate) navigator.vibrate(40);
     toast('Item passed', 't-pass', '✓');
+    loadChecklist(activeInspection.id);
+  };
+
+  const handleNA = async (itemId: string) => {
+    await api.updateCheckItem(itemId, { status: 'na' });
+    toast('Item marked N/A', 't-info', '—');
     loadChecklist(activeInspection.id);
   };
 
@@ -96,6 +105,9 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                     {item.status === 'failed' && (
                       <svg viewBox="0 0 11 11"><line x1="2" y1="2" x2="9" y2="9" stroke="var(--fail)" strokeWidth="1.8"/><line x1="9" y1="2" x2="2" y2="9" stroke="var(--fail)" strokeWidth="1.8"/></svg>
                     )}
+                    {item.status === 'na' && (
+                      <svg viewBox="0 0 11 11"><line x1="2" y1="5.5" x2="9" y2="5.5" stroke="var(--text-ghost)" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                    )}
                   </div>
                   <div className="crow-body">
                     <div className="crow-text">{item.text}</div>
@@ -109,6 +121,9 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                     <div className="crow-acts">
                       <button className="act act-p" title="Mark as passed" onClick={(e) => { e.stopPropagation(); handlePass(item.id); }}>
                         <svg width="12" height="12" viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9 10.5,2.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
+                      </button>
+                      <button className="act act-na" title="Not applicable — skip this item" onClick={(e) => { e.stopPropagation(); handleNA(item.id); }}>
+                        <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                       </button>
                       <button className="act act-f" title="Flag as failed — opens failure detail form" onClick={(e) => { e.stopPropagation(); handleFail(item.id, item.text); }}>
                         <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" strokeWidth="1.8"/></svg>

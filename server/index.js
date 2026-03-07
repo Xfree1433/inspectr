@@ -329,7 +329,7 @@ app.get('/api/inspections/:id/checklist', (req, res) => {
 
 app.patch('/api/check-items/:id', (req, res) => {
   const { status, failNote } = req.body;
-  const validStatuses = ['', 'done', 'failed'];
+  const validStatuses = ['', 'done', 'failed', 'na'];
   if (status !== undefined && !validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
   if (status !== undefined) db.prepare('UPDATE check_items SET status = ? WHERE id = ?').run(status, req.params.id);
   if (failNote !== undefined) db.prepare('UPDATE check_items SET fail_note = ? WHERE id = ?').run(failNote, req.params.id);
@@ -357,6 +357,17 @@ app.post('/api/failures', (req, res) => {
   res.status(201).json({ id });
 });
 
+app.patch('/api/failures/:id', (req, res) => {
+  const { remediationStatus } = req.body;
+  const validStatuses = ['open', 'in-progress', 'verified', 'closed'];
+  if (!validStatuses.includes(remediationStatus)) return res.status(400).json({ error: 'Invalid remediation status' });
+  const failure = db.prepare('SELECT * FROM failures WHERE id = ?').get(req.params.id);
+  if (!failure) return res.status(404).json({ error: 'Not found' });
+  db.prepare('UPDATE failures SET remediation_status = ? WHERE id = ?').run(remediationStatus, req.params.id);
+  addFeedEvent('warn', failure.inspection_id, `Failure ${remediationStatus}`, failure.title);
+  res.json({ ok: true });
+});
+
 app.get('/api/inspections/:id/failures', (req, res) => {
   const rows = db.prepare(`
     SELECT f.*, ins.name as assignee_name, ins.initials as assignee_initials
@@ -376,6 +387,7 @@ app.get('/api/inspections/:id/failures', (req, res) => {
       assigneeInitials: r.assignee_initials,
       dueDate: r.due_date,
       referenceStandard: r.reference_standard,
+      remediationStatus: r.remediation_status || 'open',
       createdAt: r.created_at,
       photos,
     };
@@ -409,15 +421,15 @@ app.get('/api/inspections/:id/report', (req, res) => {
   const groups = db.prepare('SELECT * FROM check_groups WHERE inspection_id = ? ORDER BY sort_order').all(req.params.id);
   const sections = groups.map(g => {
     const items = db.prepare('SELECT text, status, fail_note as note FROM check_items WHERE group_id = ? ORDER BY sort_order').all(g.id);
-    const passed = items.filter(i => i.status === 'done').length;
-    // Score = passed / total (consistent with recalcScore — pending items count against score)
-    const score = items.length > 0 ? Math.round((passed / items.length) * 100) : 0;
+    const applicable = items.filter(i => i.status !== 'na');
+    const passed = applicable.filter(i => i.status === 'done').length;
+    const score = applicable.length > 0 ? Math.round((passed / applicable.length) * 100) : 0;
     return {
       name: g.name,
       score,
       items: items.map(i => ({
         text: i.text,
-        status: i.status === 'done' ? 'pass' : i.status === 'failed' ? 'fail' : 'pending',
+        status: i.status === 'done' ? 'pass' : i.status === 'failed' ? 'fail' : i.status === 'na' ? 'na' : 'pending',
         note: i.note || undefined,
       })),
     };
@@ -454,12 +466,12 @@ app.post('/api/inspections/:id/submit', (req, res) => {
 // ── Helpers ──
 function recalcScore(inspectionId) {
   const groups = db.prepare('SELECT id FROM check_groups WHERE inspection_id = ?').all(inspectionId);
-  let totalItems = 0, doneItems = 0, passedItems = 0;
+  let totalItems = 0, passedItems = 0;
   groups.forEach(g => {
     const items = db.prepare('SELECT status FROM check_items WHERE group_id = ?').all(g.id);
-    totalItems += items.length;
     items.forEach(i => {
-      if (i.status === 'done' || i.status === 'failed') doneItems++;
+      if (i.status === 'na') return; // N/A items excluded from scoring
+      totalItems++;
       if (i.status === 'done') passedItems++;
     });
   });

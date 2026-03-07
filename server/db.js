@@ -64,6 +64,7 @@ db.exec(`
     assignee_id TEXT REFERENCES inspectors(id),
     due_date TEXT,
     reference_standard TEXT DEFAULT '',
+    remediation_status TEXT DEFAULT 'open',
     created_at TEXT DEFAULT (datetime('now'))
   );
 

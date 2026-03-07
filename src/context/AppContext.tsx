@@ -133,6 +133,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-refresh feed every 30s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadFeed();
+        loadStats();
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [loadFeed, loadStats]);
+
   useEffect(() => {
     if (activeInspection) loadChecklist(activeInspection.id);
   }, [activeInspection]);  // eslint-disable-line react-hooks/exhaustive-deps

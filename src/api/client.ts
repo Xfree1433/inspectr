@@ -38,6 +38,8 @@ export const api = {
 
   getFailures: (inspectionId: string) =>
     request<import('../types').FailureView[]>(`/api/inspections/${inspectionId}/failures`),
+  updateFailure: (id: string, data: { remediationStatus: string }) =>
+    request<{ ok: boolean }>(`/api/failures/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   getFeed: () => request<import('../types').FeedEvent[]>('/api/feed'),
 
