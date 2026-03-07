@@ -36,6 +36,13 @@ export const api = {
     request<{ ok: boolean }>(`/api/companies/${id}`, { method: 'DELETE' }),
 
   getTemplates: () => request<import('../types').Template[]>('/api/templates'),
+  getTemplate: (id: string) => request<import('../types').TemplateDetail>(`/api/templates/${id}`),
+  createTemplate: (data: { name: string; icon?: string; groups?: { name: string; items: { text: string }[] }[] }) =>
+    request<import('../types').Template>('/api/templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateTemplate: (id: string, data: { name?: string; icon?: string; groups?: { name: string; items: { text: string }[] }[] }) =>
+    request<{ ok: boolean }>(`/api/templates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteTemplate: (id: string) =>
+    request<{ ok: boolean }>(`/api/templates/${id}`, { method: 'DELETE' }),
 
   getInspections: (status?: string, from?: string, to?: string) => {
     const params = new URLSearchParams();

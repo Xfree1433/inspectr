@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client';
 import { useApp } from '../context/AppContext';
-import type { Company, Site, Inspector } from '../types';
+import type { Company, Site, Inspector, Template, TemplateDetail } from '../types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
 
-type Tab = 'companies' | 'sites' | 'inspectors';
+type Tab = 'companies' | 'sites' | 'inspectors' | 'templates';
+
+interface EditGroup {
+  name: string;
+  items: string[];
+}
 
 export function SettingsModal({ open, onClose }: Props) {
   const { toast, loadInspectors } = useApp();
@@ -16,14 +21,23 @@ export function SettingsModal({ open, onClose }: Props) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [inspectors, setInspectors] = useState<Inspector[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
 
+  // Template editor state
+  const [tmplEditId, setTmplEditId] = useState<string | null>(null);
+  const [tmplName, setTmplName] = useState('');
+  const [tmplIcon, setTmplIcon] = useState('');
+  const [tmplGroups, setTmplGroups] = useState<EditGroup[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const load = useCallback(async () => {
-    const [c, s, i] = await Promise.all([api.getCompanies(), api.getSites(), api.getInspectors()]);
+    const [c, s, i, t] = await Promise.all([api.getCompanies(), api.getSites(), api.getInspectors(), api.getTemplates()]);
     setCompanies(c);
     setSites(s);
     setInspectors(i);
+    setTemplates(t);
   }, []);
 
   useEffect(() => {
@@ -31,6 +45,13 @@ export function SettingsModal({ open, onClose }: Props) {
   }, [open, load]);
 
   const startAdd = () => {
+    if (tab === 'templates') {
+      setTmplEditId('new');
+      setTmplName('');
+      setTmplIcon('📋');
+      setTmplGroups([{ name: 'Group 1', items: [''] }]);
+      return;
+    }
     setEditId('new');
     setForm(tab === 'companies' ? { name: '', contact: '', phone: '' } : tab === 'inspectors' ? { name: '', initials: '' } : { name: '' });
   };
@@ -42,7 +63,23 @@ export function SettingsModal({ open, onClose }: Props) {
     else setForm({ name: item.name });
   };
 
+  const startEditTemplate = async (tmpl: Template) => {
+    setLoading(true);
+    try {
+      const detail = await api.getTemplate(tmpl.id);
+      setTmplEditId(tmpl.id);
+      setTmplName(detail.name);
+      setTmplIcon(detail.icon);
+      setTmplGroups(detail.groups.map(g => ({
+        name: g.name,
+        items: g.items.map(i => i.text),
+      })));
+    } catch { toast('Failed to load template', 't-fail', '!'); }
+    setLoading(false);
+  };
+
   const cancelEdit = () => { setEditId(null); setForm({}); };
+  const cancelTmplEdit = () => { setTmplEditId(null); setTmplGroups([]); };
 
   const save = async () => {
     if (!form.name?.trim()) { toast('Name is required', 't-fail', '!'); return; }
@@ -64,15 +101,51 @@ export function SettingsModal({ open, onClose }: Props) {
     } catch { toast('Failed to save', 't-fail', '!'); }
   };
 
+  const saveTmpl = async () => {
+    if (!tmplName.trim()) { toast('Template name is required', 't-fail', '!'); return; }
+    const cleanGroups = tmplGroups
+      .map(g => ({ name: g.name.trim(), items: g.items.filter(i => i.trim()).map(i => ({ text: i.trim() })) }))
+      .filter(g => g.name && g.items.length > 0);
+    if (cleanGroups.length === 0) { toast('Add at least one group with items', 't-fail', '!'); return; }
+    try {
+      if (tmplEditId === 'new') {
+        await api.createTemplate({ name: tmplName.trim(), icon: tmplIcon || '📋', groups: cleanGroups });
+        toast('Template created', 't-pass', '+');
+      } else {
+        await api.updateTemplate(tmplEditId!, { name: tmplName.trim(), icon: tmplIcon, groups: cleanGroups });
+        toast('Template updated', 't-pass', '✓');
+      }
+      cancelTmplEdit();
+      load();
+    } catch { toast('Failed to save template', 't-fail', '!'); }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       if (tab === 'companies') await api.deleteCompany(id);
       else if (tab === 'inspectors') await api.deleteInspector(id);
+      else if (tab === 'templates') await api.deleteTemplate(id);
       else await api.deleteSite(id);
       toast('Deleted', 't-info', '~');
       load();
       if (tab === 'inspectors') loadInspectors();
     } catch { toast('Failed to delete', 't-fail', '!'); }
+  };
+
+  // Template group/item helpers
+  const addGroup = () => setTmplGroups([...tmplGroups, { name: '', items: [''] }]);
+  const removeGroup = (gi: number) => setTmplGroups(tmplGroups.filter((_, i) => i !== gi));
+  const updateGroupName = (gi: number, name: string) => {
+    const g = [...tmplGroups]; g[gi] = { ...g[gi], name }; setTmplGroups(g);
+  };
+  const addItem = (gi: number) => {
+    const g = [...tmplGroups]; g[gi] = { ...g[gi], items: [...g[gi].items, ''] }; setTmplGroups(g);
+  };
+  const removeItem = (gi: number, ii: number) => {
+    const g = [...tmplGroups]; g[gi] = { ...g[gi], items: g[gi].items.filter((_, i) => i !== ii) }; setTmplGroups(g);
+  };
+  const updateItem = (gi: number, ii: number, text: string) => {
+    const g = [...tmplGroups]; const items = [...g[gi].items]; items[ii] = text; g[gi] = { ...g[gi], items }; setTmplGroups(g);
   };
 
   if (!open) return null;
@@ -81,13 +154,15 @@ export function SettingsModal({ open, onClose }: Props) {
     { id: 'companies', label: 'Companies', count: companies.length },
     { id: 'sites', label: 'Sites', count: sites.length },
     { id: 'inspectors', label: 'Inspectors', count: inspectors.length },
+    { id: 'templates', label: 'Templates', count: templates.length },
   ];
 
-  const items = tab === 'companies' ? companies : tab === 'sites' ? sites : inspectors;
+  const isTemplateTab = tab === 'templates';
+  const items = tab === 'companies' ? companies : tab === 'sites' ? sites : tab === 'inspectors' ? inspectors : templates;
 
   return (
     <div className="modal-overlay open" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 520, maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 580, maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
         <div className="modal-hdr">
           <div className="modal-title">Settings</div>
           <button className="modal-close" onClick={onClose}>
@@ -99,64 +174,123 @@ export function SettingsModal({ open, onClose }: Props) {
             <button
               key={t.id}
               className={`settings-tab${tab === t.id ? ' active' : ''}`}
-              onClick={() => { setTab(t.id); cancelEdit(); }}
+              onClick={() => { setTab(t.id); cancelEdit(); cancelTmplEdit(); }}
             >
               {t.label} <span className="settings-tab-count">{t.count}</span>
             </button>
           ))}
         </div>
-        <div className="modal-body" style={{ padding: 0, minHeight: 300 }}>
-          <div className="settings-toolbar">
-            <button className="btn-lime" style={{ padding: '8px 16px', fontSize: 12 }} onClick={startAdd}>
-              + Add {tab.slice(0, -1) === 'companie' ? 'Company' : tab.slice(0, -1).replace(/^./, c => c.toUpperCase())}
-            </button>
-          </div>
-
-          {editId === 'new' && (
-            <div className="settings-edit-row">
-              {renderForm(tab, form, setForm)}
-              <div className="settings-edit-actions">
-                <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
-                <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
+        <div className="modal-body" style={{ padding: 0, minHeight: 300, overflowY: 'auto', maxHeight: 'calc(90vh - 130px)' }}>
+          {/* Template editor view */}
+          {isTemplateTab && tmplEditId ? (
+            <div className="tmpl-editor">
+              <div className="tmpl-editor-header">
+                <div className="field-group" style={{ padding: '12px 16px 0' }}>
+                  <div className="field-label">{tmplEditId === 'new' ? 'New Template' : 'Edit Template'}</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input className="fm-input" placeholder="Icon emoji" value={tmplIcon} onChange={e => setTmplIcon(e.target.value)} style={{ width: 60, textAlign: 'center', fontSize: 18, padding: '6px 4px' }} />
+                    <input className="fm-input" placeholder="Template name *" value={tmplName} onChange={e => setTmplName(e.target.value)} style={{ flex: 1 }} autoFocus />
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
 
-          {items.length === 0 && !editId ? (
-            <div className="empty-state" style={{ padding: '40px 20px' }}>
-              <div className="empty-state-title">No {tab} yet</div>
-              <div className="empty-state-text">Tap the button above to add your first one.</div>
+              {tmplGroups.map((group, gi) => (
+                <div key={gi} className="tmpl-group-editor">
+                  <div className="tmpl-group-hdr">
+                    <input className="fm-input" placeholder="Group name *" value={group.name} onChange={e => updateGroupName(gi, e.target.value)} style={{ flex: 1, fontWeight: 600 }} />
+                    {tmplGroups.length > 1 && (
+                      <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', color: 'var(--fail)' }} onClick={() => removeGroup(gi)}>Remove</button>
+                    )}
+                  </div>
+                  <div className="tmpl-items-list">
+                    {group.items.map((item, ii) => (
+                      <div key={ii} className="tmpl-item-row">
+                        <span className="tmpl-item-num">{ii + 1}.</span>
+                        <input className="fm-input" placeholder="Check item text..." value={item} onChange={e => updateItem(gi, ii, e.target.value)} style={{ flex: 1 }} />
+                        <button className="tmpl-item-remove" onClick={() => removeItem(gi, ii)} title="Remove item">
+                          <svg width="10" height="10" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.8"/></svg>
+                        </button>
+                      </div>
+                    ))}
+                    <button className="btn-ghost tmpl-add-item" onClick={() => addItem(gi)}>+ Add Item</button>
+                  </div>
+                </div>
+              ))}
+
+              <div style={{ padding: '8px 16px 12px' }}>
+                <button className="btn-ghost" style={{ fontSize: 12, padding: '8px 14px' }} onClick={addGroup}>+ Add Group</button>
+              </div>
+
+              <div className="tmpl-editor-foot">
+                <button className="btn-ghost" onClick={cancelTmplEdit}>Cancel</button>
+                <button className="btn-lime" style={{ marginLeft: 'auto' }} onClick={saveTmpl}>
+                  {tmplEditId === 'new' ? 'Create Template' : 'Save Changes'}
+                </button>
+              </div>
             </div>
           ) : (
-            items.map((item: any) => (
-              <div key={item.id} className="settings-item">
-                {editId === item.id ? (
-                  <div className="settings-edit-row">
-                    {renderForm(tab, form, setForm)}
-                    <div className="settings-edit-actions">
-                      <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
-                      <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="settings-item-row">
-                    <div className="settings-item-info">
-                      {tab === 'inspectors' && <div className="av" style={{ fontSize: 11, width: 32, height: 32 }}>{(item as Inspector).initials}</div>}
-                      <div>
-                        <div className="settings-item-name">{item.name}</div>
-                        {tab === 'companies' && (item as Company).contact && (
-                          <div className="settings-item-sub">{(item as Company).contact}{(item as Company).phone ? ` · ${(item as Company).phone}` : ''}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="settings-item-actions">
-                      <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={() => startEdit(item)}>Edit</button>
-                      <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', color: 'var(--fail)' }} onClick={() => handleDelete(item.id)}>Delete</button>
-                    </div>
-                  </div>
-                )}
+            <>
+              <div className="settings-toolbar">
+                <button className="btn-lime" style={{ padding: '8px 16px', fontSize: 12 }} onClick={startAdd}>
+                  + Add {isTemplateTab ? 'Template' : tab.slice(0, -1) === 'companie' ? 'Company' : tab.slice(0, -1).replace(/^./, c => c.toUpperCase())}
+                </button>
               </div>
-            ))
+
+              {!isTemplateTab && editId === 'new' && (
+                <div className="settings-edit-row">
+                  {renderForm(tab, form, setForm)}
+                  <div className="settings-edit-actions">
+                    <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
+                    <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {items.length === 0 && !editId && !tmplEditId ? (
+                <div className="empty-state" style={{ padding: '40px 20px' }}>
+                  <div className="empty-state-title">No {tab} yet</div>
+                  <div className="empty-state-text">Tap the button above to add your first one.</div>
+                </div>
+              ) : (
+                items.map((item: any) => (
+                  <div key={item.id} className="settings-item">
+                    {!isTemplateTab && editId === item.id ? (
+                      <div className="settings-edit-row">
+                        {renderForm(tab, form, setForm)}
+                        <div className="settings-edit-actions">
+                          <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
+                          <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="settings-item-row">
+                        <div className="settings-item-info">
+                          {tab === 'inspectors' && <div className="av" style={{ fontSize: 11, width: 32, height: 32 }}>{(item as Inspector).initials}</div>}
+                          {isTemplateTab && <div style={{ fontSize: 20, width: 32, textAlign: 'center' }}>{(item as Template).icon}</div>}
+                          <div>
+                            <div className="settings-item-name">{item.name}</div>
+                            {tab === 'companies' && (item as Company).contact && (
+                              <div className="settings-item-sub">{(item as Company).contact}{(item as Company).phone ? ` · ${(item as Company).phone}` : ''}</div>
+                            )}
+                            {isTemplateTab && (
+                              <div className="settings-item-sub">{(item as Template).count} checklist items</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="settings-item-actions">
+                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={() => isTemplateTab ? startEditTemplate(item as Template) : startEdit(item)}>Edit</button>
+                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', color: 'var(--fail)' }} onClick={() => handleDelete(item.id)}>Delete</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </>
+          )}
+
+          {loading && (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)' }}>Loading...</div>
           )}
         </div>
       </div>

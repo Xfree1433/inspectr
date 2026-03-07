@@ -96,6 +96,21 @@ export interface Template {
   count: number;
 }
 
+export interface TemplateItemDetail {
+  id: number;
+  text: string;
+}
+
+export interface TemplateGroupDetail {
+  id: number;
+  name: string;
+  items: TemplateItemDetail[];
+}
+
+export interface TemplateDetail extends Template {
+  groups: TemplateGroupDetail[];
+}
+
 export interface Stats {
   passed: number;
   failures: number;

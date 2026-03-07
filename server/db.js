@@ -92,6 +92,20 @@ db.exec(`
     tag TEXT DEFAULT ''
   );
 
+  CREATE TABLE IF NOT EXISTS template_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id TEXT REFERENCES templates(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS template_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id INTEGER REFERENCES template_groups(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0
+  );
+
   CREATE INDEX IF NOT EXISTS idx_inspections_status ON inspections(status);
   CREATE INDEX IF NOT EXISTS idx_inspections_created ON inspections(created_at DESC);
 `);
@@ -106,6 +120,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_check_items_group ON check_items(group_id);
   CREATE INDEX IF NOT EXISTS idx_failures_insp ON failures(inspection_id);
   CREATE INDEX IF NOT EXISTS idx_feed_time ON feed_events(time DESC);
+  CREATE INDEX IF NOT EXISTS idx_tmpl_groups ON template_groups(template_id);
+  CREATE INDEX IF NOT EXISTS idx_tmpl_items ON template_items(group_id);
 `);
 
 // Seed data if empty
@@ -189,6 +205,213 @@ if (count.c === 0) {
   });
 
   seedAll();
+}
+
+// Seed template checklist groups/items if empty (migration for existing DBs)
+const tmplGroupCount = db.prepare('SELECT COUNT(*) as c FROM template_groups').get();
+if (tmplGroupCount.c === 0) {
+  const TEMPLATE_CHECKLISTS = {
+    structural: [
+      { name: 'Foundation & Substructure', items: [
+        'Foundation crack inspection (width, length, pattern)',
+        'Settlement or heaving assessment',
+        'Anchor bolt condition and torque check',
+        'Waterproofing / damp-proof membrane integrity',
+        'Soil erosion around footings',
+        'Pile cap condition (if applicable)',
+      ]},
+      { name: 'Superstructure', items: [
+        'Load-bearing wall plumb and alignment',
+        'Steel beam / column connection inspection',
+        'Weld quality visual check (cracks, porosity, undercut)',
+        'Concrete spalling or delamination',
+        'Reinforcement bar exposure / corrosion',
+        'Expansion joint condition and gap measurement',
+      ]},
+      { name: 'Roof & Envelope', items: [
+        'Roof membrane integrity and ponding',
+        'Flashing and coping condition',
+        'Parapet wall stability',
+        'Cladding / curtain wall fastener check',
+        'Window and door frame seal inspection',
+        'Gutter and downspout drainage flow test',
+      ]},
+      { name: 'Safety & Documentation', items: [
+        'Structural drawings current and on-site',
+        'Load rating signage posted',
+        'Shoring / bracing temporary works verified',
+        'Egress routes unobstructed',
+        'PPE compliance confirmed',
+        'Previous deficiency close-out verified',
+      ]},
+    ],
+    electrical: [
+      { name: 'Switchgear & Distribution', items: [
+        'Main breaker operation test',
+        'Bus bar torque and thermal scan',
+        'Arc flash labels current and visible',
+        'Switchgear enclosure condition (rust, damage)',
+        'Ground fault protection test',
+      ]},
+      { name: 'Wiring & Conduit', items: [
+        'Conduit support and fastener check',
+        'Wire insulation condition (cracking, discoloration)',
+        'Junction box covers secure and labeled',
+        'Cable tray fill ratio within limits',
+        'Conductor termination torque verification',
+      ]},
+      { name: 'Grounding & Bonding', items: [
+        'Ground rod resistance measurement',
+        'Bonding jumper continuity test',
+        'Equipment grounding conductor check',
+        'Lightning protection system inspection',
+      ]},
+      { name: 'Controls & Safety', items: [
+        'Emergency stop function test',
+        'Control panel voltage readings recorded',
+        'GFCI / RCD trip test',
+        'Lockout/tagout devices in place',
+      ]},
+    ],
+    mechanical: [
+      { name: 'Rotating Equipment', items: [
+        'Motor vibration measurement',
+        'Bearing temperature and noise check',
+        'Belt / coupling alignment and tension',
+        'Shaft seal / packing gland inspection',
+        'Lubrication level and condition',
+      ]},
+      { name: 'Piping & Valves', items: [
+        'Pipe support and hanger condition',
+        'Valve operation test (open/close/throttle)',
+        'Flange bolt torque and gasket check',
+        'Expansion loop / bellows inspection',
+        'Pipe insulation and lagging condition',
+        'Pressure gauge calibration date verified',
+      ]},
+      { name: 'HVAC Systems', items: [
+        'Air handler unit filter condition',
+        'Ductwork joint seal and insulation',
+        'Thermostat calibration check',
+        'Refrigerant charge and leak test',
+        'Condensate drain flow and trap condition',
+      ]},
+      { name: 'Safety & Compliance', items: [
+        'Pressure relief valve tag and test date',
+        'Emergency shutoff valve accessibility',
+        'Machine guarding in place',
+        'Safety signage and placards current',
+        'Maintenance log up to date',
+      ]},
+    ],
+    environmental: [
+      { name: 'Air Quality', items: [
+        'Emissions monitoring equipment calibration',
+        'Stack / vent discharge visual inspection',
+        'Dust suppression measures in place',
+        'Odor complaint log reviewed',
+      ]},
+      { name: 'Water & Stormwater', items: [
+        'Outfall discharge sampling (pH, turbidity)',
+        'Stormwater BMP condition (silt fence, basins)',
+        'Spill prevention containment check',
+        'Dewatering discharge permit compliance',
+      ]},
+      { name: 'Waste & Hazmat', items: [
+        'Hazardous waste storage area condition',
+        'Container labeling and dating correct',
+        'Secondary containment integrity',
+        'Waste manifest documentation current',
+      ]},
+      { name: 'Ecological & Compliance', items: [
+        'Erosion and sediment control effectiveness',
+        'Protected species / habitat buffer verified',
+        'Environmental permit conditions posted',
+      ]},
+    ],
+    pavement: [
+      { name: 'Surface Condition', items: [
+        'Cracking survey (type, severity, extent)',
+        'Rutting depth measurement',
+        'Raveling / weathering assessment',
+        'Pothole identification and sizing',
+      ]},
+      { name: 'Structural Assessment', items: [
+        'Core sample thickness verification',
+        'Subgrade / base layer condition',
+        'Deflection testing results review',
+        'Joint / crack sealant condition',
+      ]},
+      { name: 'Drainage & Markings', items: [
+        'Surface drainage and cross-slope adequacy',
+        'Catch basin and inlet condition',
+        'Line striping reflectivity and visibility',
+        'Signage and delineator condition',
+      ]},
+    ],
+    facility: [
+      { name: 'Building Exterior', items: [
+        'Roof condition and drainage',
+        'Exterior wall and cladding inspection',
+        'Window and door seal integrity',
+        'Foundation visible crack check',
+        'Parking lot and walkway condition',
+        'Exterior lighting function test',
+      ]},
+      { name: 'Building Interior', items: [
+        'Floor surface condition and trip hazards',
+        'Ceiling tile and grid condition',
+        'Interior wall damage assessment',
+        'Door and hardware function test',
+        'Stairway handrail and tread check',
+      ]},
+      { name: 'MEP Systems', items: [
+        'HVAC system operation and filter check',
+        'Plumbing fixture and drain function',
+        'Electrical panel access clear (36" clearance)',
+        'Emergency generator run test',
+        'Elevator / lift inspection tag current',
+        'Fire suppression system gauge check',
+      ]},
+      { name: 'Life Safety', items: [
+        'Fire extinguisher inspection tags current',
+        'Emergency exit signage illuminated',
+        'Egress routes clear and unobstructed',
+        'Smoke / CO detector function test',
+        'AED unit inspection and battery date',
+        'Emergency evacuation plan posted',
+      ]},
+      { name: 'Compliance & Documentation', items: [
+        'Occupancy permit current and posted',
+        'ADA accessibility compliance check',
+        'Hazmat / SDS binder location verified',
+        'Building maintenance log current',
+        'Pest control service log reviewed',
+        'Janitorial / sanitation schedule posted',
+        'Energy audit / utility meter reading recorded',
+      ]},
+    ],
+  };
+
+  const insTemplGroup = db.prepare('INSERT INTO template_groups (template_id, name, sort_order) VALUES (?, ?, ?)');
+  const insTemplItem = db.prepare('INSERT INTO template_items (group_id, text, sort_order) VALUES (?, ?, ?)');
+  const seedTemplates = db.transaction(() => {
+    for (const [templateId, groups] of Object.entries(TEMPLATE_CHECKLISTS)) {
+      groups.forEach((group, gi) => {
+        const gid = insTemplGroup.run(templateId, group.name, gi).lastInsertRowid;
+        group.items.forEach((text, ii) => insTemplItem.run(gid, text, ii));
+      });
+    }
+  });
+  seedTemplates();
+
+  // Update item counts
+  const updateCount = db.prepare('UPDATE templates SET item_count = ? WHERE id = ?');
+  const templates = db.prepare('SELECT id FROM templates').all();
+  templates.forEach(t => {
+    const cnt = db.prepare('SELECT COUNT(*) as c FROM template_items ti JOIN template_groups tg ON ti.group_id = tg.id WHERE tg.template_id = ?').get(t.id);
+    updateCount.run(cnt.c, t.id);
+  });
 }
 
 export default db;

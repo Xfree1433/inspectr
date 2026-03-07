@@ -7,189 +7,19 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// ── Template Checklists ──
-const TEMPLATE_CHECKLISTS = {
-  structural: [
-    { name: 'Foundation & Substructure', items: [
-      'Foundation crack inspection (width, length, pattern)',
-      'Settlement or heaving assessment',
-      'Anchor bolt condition and torque check',
-      'Waterproofing / damp-proof membrane integrity',
-      'Soil erosion around footings',
-      'Pile cap condition (if applicable)',
-    ]},
-    { name: 'Superstructure', items: [
-      'Load-bearing wall plumb and alignment',
-      'Steel beam / column connection inspection',
-      'Weld quality visual check (cracks, porosity, undercut)',
-      'Concrete spalling or delamination',
-      'Reinforcement bar exposure / corrosion',
-      'Expansion joint condition and gap measurement',
-    ]},
-    { name: 'Roof & Envelope', items: [
-      'Roof membrane integrity and ponding',
-      'Flashing and coping condition',
-      'Parapet wall stability',
-      'Cladding / curtain wall fastener check',
-      'Window and door frame seal inspection',
-      'Gutter and downspout drainage flow test',
-    ]},
-    { name: 'Safety & Documentation', items: [
-      'Structural drawings current and on-site',
-      'Load rating signage posted',
-      'Shoring / bracing temporary works verified',
-      'Egress routes unobstructed',
-      'PPE compliance confirmed',
-      'Previous deficiency close-out verified',
-    ]},
-  ],
-  electrical: [
-    { name: 'Switchgear & Distribution', items: [
-      'Main breaker operation test',
-      'Bus bar torque and thermal scan',
-      'Arc flash labels current and visible',
-      'Switchgear enclosure condition (rust, damage)',
-      'Ground fault protection test',
-    ]},
-    { name: 'Wiring & Conduit', items: [
-      'Conduit support and fastener check',
-      'Wire insulation condition (cracking, discoloration)',
-      'Junction box covers secure and labeled',
-      'Cable tray fill ratio within limits',
-      'Conductor termination torque verification',
-    ]},
-    { name: 'Grounding & Bonding', items: [
-      'Ground rod resistance measurement',
-      'Bonding jumper continuity test',
-      'Equipment grounding conductor check',
-      'Lightning protection system inspection',
-    ]},
-    { name: 'Controls & Safety', items: [
-      'Emergency stop function test',
-      'Control panel voltage readings recorded',
-      'GFCI / RCD trip test',
-      'Lockout/tagout devices in place',
-    ]},
-  ],
-  mechanical: [
-    { name: 'Rotating Equipment', items: [
-      'Motor vibration measurement',
-      'Bearing temperature and noise check',
-      'Belt / coupling alignment and tension',
-      'Shaft seal / packing gland inspection',
-      'Lubrication level and condition',
-    ]},
-    { name: 'Piping & Valves', items: [
-      'Pipe support and hanger condition',
-      'Valve operation test (open/close/throttle)',
-      'Flange bolt torque and gasket check',
-      'Expansion loop / bellows inspection',
-      'Pipe insulation and lagging condition',
-      'Pressure gauge calibration date verified',
-    ]},
-    { name: 'HVAC Systems', items: [
-      'Air handler unit filter condition',
-      'Ductwork joint seal and insulation',
-      'Thermostat calibration check',
-      'Refrigerant charge and leak test',
-      'Condensate drain flow and trap condition',
-    ]},
-    { name: 'Safety & Compliance', items: [
-      'Pressure relief valve tag and test date',
-      'Emergency shutoff valve accessibility',
-      'Machine guarding in place',
-      'Safety signage and placards current',
-      'Maintenance log up to date',
-    ]},
-  ],
-  environmental: [
-    { name: 'Air Quality', items: [
-      'Emissions monitoring equipment calibration',
-      'Stack / vent discharge visual inspection',
-      'Dust suppression measures in place',
-      'Odor complaint log reviewed',
-    ]},
-    { name: 'Water & Stormwater', items: [
-      'Outfall discharge sampling (pH, turbidity)',
-      'Stormwater BMP condition (silt fence, basins)',
-      'Spill prevention containment check',
-      'Dewatering discharge permit compliance',
-    ]},
-    { name: 'Waste & Hazmat', items: [
-      'Hazardous waste storage area condition',
-      'Container labeling and dating correct',
-      'Secondary containment integrity',
-      'Waste manifest documentation current',
-    ]},
-    { name: 'Ecological & Compliance', items: [
-      'Erosion and sediment control effectiveness',
-      'Protected species / habitat buffer verified',
-      'Environmental permit conditions posted',
-    ]},
-  ],
-  pavement: [
-    { name: 'Surface Condition', items: [
-      'Cracking survey (type, severity, extent)',
-      'Rutting depth measurement',
-      'Raveling / weathering assessment',
-      'Pothole identification and sizing',
-    ]},
-    { name: 'Structural Assessment', items: [
-      'Core sample thickness verification',
-      'Subgrade / base layer condition',
-      'Deflection testing results review',
-      'Joint / crack sealant condition',
-    ]},
-    { name: 'Drainage & Markings', items: [
-      'Surface drainage and cross-slope adequacy',
-      'Catch basin and inlet condition',
-      'Line striping reflectivity and visibility',
-      'Signage and delineator condition',
-    ]},
-  ],
-  facility: [
-    { name: 'Building Exterior', items: [
-      'Roof condition and drainage',
-      'Exterior wall and cladding inspection',
-      'Window and door seal integrity',
-      'Foundation visible crack check',
-      'Parking lot and walkway condition',
-      'Exterior lighting function test',
-    ]},
-    { name: 'Building Interior', items: [
-      'Floor surface condition and trip hazards',
-      'Ceiling tile and grid condition',
-      'Interior wall damage assessment',
-      'Door and hardware function test',
-      'Stairway handrail and tread check',
-    ]},
-    { name: 'MEP Systems', items: [
-      'HVAC system operation and filter check',
-      'Plumbing fixture and drain function',
-      'Electrical panel access clear (36″ clearance)',
-      'Emergency generator run test',
-      'Elevator / lift inspection tag current',
-      'Fire suppression system gauge check',
-    ]},
-    { name: 'Life Safety', items: [
-      'Fire extinguisher inspection tags current',
-      'Emergency exit signage illuminated',
-      'Egress routes clear and unobstructed',
-      'Smoke / CO detector function test',
-      'AED unit inspection and battery date',
-      'Emergency evacuation plan posted',
-    ]},
-    { name: 'Compliance & Documentation', items: [
-      'Occupancy permit current and posted',
-      'ADA accessibility compliance check',
-      'Hazmat / SDS binder location verified',
-      'Building maintenance log current',
-      'Pest control service log reviewed',
-      'Janitorial / sanitation schedule posted',
-      'Energy audit / utility meter reading recorded',
-    ]},
-  ],
-};
+// ── Helper: get template checklist from DB ──
+function getTemplateChecklist(templateId) {
+  const groups = db.prepare('SELECT * FROM template_groups WHERE template_id = ? ORDER BY sort_order').all(templateId);
+  return groups.map(g => ({
+    name: g.name,
+    items: db.prepare('SELECT text FROM template_items WHERE group_id = ? ORDER BY sort_order').all(g.id).map(i => i.text),
+  }));
+}
+
+function updateTemplateItemCount(templateId) {
+  const cnt = db.prepare('SELECT COUNT(*) as c FROM template_items ti JOIN template_groups tg ON ti.group_id = tg.id WHERE tg.template_id = ?').get(templateId);
+  db.prepare('UPDATE templates SET item_count = ? WHERE id = ?').run(cnt.c, templateId);
+}
 
 // ── Companies ──
 app.get('/api/companies', (_req, res) => {
@@ -267,6 +97,67 @@ app.delete('/api/sites/:id', (req, res) => {
 // ── Templates ──
 app.get('/api/templates', (_req, res) => {
   res.json(db.prepare('SELECT id, icon, name, item_count as count FROM templates ORDER BY name').all());
+});
+
+app.get('/api/templates/:id', (req, res) => {
+  const tmpl = db.prepare('SELECT id, icon, name, item_count as count FROM templates WHERE id = ?').get(req.params.id);
+  if (!tmpl) return res.status(404).json({ error: 'Not found' });
+  const groups = db.prepare('SELECT * FROM template_groups WHERE template_id = ? ORDER BY sort_order').all(req.params.id);
+  const result = {
+    ...tmpl,
+    groups: groups.map(g => ({
+      id: g.id,
+      name: g.name,
+      items: db.prepare('SELECT id, text FROM template_items WHERE group_id = ? ORDER BY sort_order').all(g.id),
+    })),
+  };
+  res.json(result);
+});
+
+app.post('/api/templates', (req, res) => {
+  const { name, icon, groups } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const id = `tmpl-${uuid().slice(0, 8)}`;
+  db.prepare('INSERT INTO templates (id, icon, name, item_count) VALUES (?, ?, ?, ?)').run(id, icon || '📋', name.trim(), 0);
+  if (groups && groups.length > 0) {
+    const insGroup = db.prepare('INSERT INTO template_groups (template_id, name, sort_order) VALUES (?, ?, ?)');
+    const insItem = db.prepare('INSERT INTO template_items (group_id, text, sort_order) VALUES (?, ?, ?)');
+    db.transaction(() => {
+      groups.forEach((g, gi) => {
+        const gid = insGroup.run(id, g.name, gi).lastInsertRowid;
+        (g.items || []).forEach((text, ii) => insItem.run(gid, typeof text === 'string' ? text : text.text, ii));
+      });
+    })();
+  }
+  updateTemplateItemCount(id);
+  const tmpl = db.prepare('SELECT id, icon, name, item_count as count FROM templates WHERE id = ?').get(id);
+  res.status(201).json(tmpl);
+});
+
+app.patch('/api/templates/:id', (req, res) => {
+  const { name, icon, groups } = req.body;
+  const tmpl = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
+  if (!tmpl) return res.status(404).json({ error: 'Not found' });
+  if (name !== undefined) db.prepare('UPDATE templates SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
+  if (icon !== undefined) db.prepare('UPDATE templates SET icon = ? WHERE id = ?').run(icon, req.params.id);
+  if (groups !== undefined) {
+    db.transaction(() => {
+      db.prepare('DELETE FROM template_groups WHERE template_id = ?').run(req.params.id);
+      const insGroup = db.prepare('INSERT INTO template_groups (template_id, name, sort_order) VALUES (?, ?, ?)');
+      const insItem = db.prepare('INSERT INTO template_items (group_id, text, sort_order) VALUES (?, ?, ?)');
+      groups.forEach((g, gi) => {
+        const gid = insGroup.run(req.params.id, g.name, gi).lastInsertRowid;
+        (g.items || []).forEach((item, ii) => insItem.run(gid, typeof item === 'string' ? item : item.text, ii));
+      });
+    })();
+  }
+  updateTemplateItemCount(req.params.id);
+  res.json({ ok: true });
+});
+
+app.delete('/api/templates/:id', (req, res) => {
+  db.prepare('DELETE FROM templates WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 // ── Search ──
@@ -356,10 +247,10 @@ app.post('/api/inspections', (req, res) => {
   const id = `INS-${String(db.prepare('SELECT COUNT(*) as c FROM inspections').get().c + 892).padStart(4, '0')}`;
   db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, company_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, companyId || null, notes || '');
 
-  // Create checklist groups based on template
+  // Create checklist groups based on template (from DB)
   if (templateId) {
-    const groups = TEMPLATE_CHECKLISTS[templateId];
-    if (groups) {
+    const groups = getTemplateChecklist(templateId);
+    if (groups.length > 0) {
       const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
       const insItem = db.prepare('INSERT INTO check_items (id, group_id, text, status, sort_order) VALUES (?, ?, ?, ?, ?)');
       groups.forEach((group, gi) => {
