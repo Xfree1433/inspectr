@@ -53,6 +53,7 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
   };
 
   const statusBadge = activeInspection.status === 'pass' ? 'bp' : activeInspection.status === 'fail' ? 'bf' : 'bn';
+  const isLocked = activeInspection.status === 'pass' || activeInspection.status === 'fail';
 
   return (
     <div className="cl-col">
@@ -68,9 +69,15 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
           <div className="pfr">{doneItems}/{totalItems}</div>
         </div>
       </div>
-      <div className="section-hint">
-        Work through each item below. Tap ✓ to pass or ✕ to flag a failure. Failed items open a detail form for notes, photos, and assignment.
-      </div>
+      {isLocked ? (
+        <div className="cl-locked-banner">
+          This inspection has been submitted and is now read-only.
+        </div>
+      ) : (
+        <div className="section-hint">
+          Work through each item below. Tap ✓ to pass or ✕ to flag a failure. Failed items open a detail form for notes, photos, and assignment.
+        </div>
+      )}
       <div className="cl-scroll">
         {checklist.length === 0 ? (
           <div className="empty-state">
@@ -98,7 +105,7 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                       </div>
                     )}
                   </div>
-                  {!item.status && (
+                  {!item.status && !isLocked && (
                     <div className="crow-acts">
                       <button className="act act-p" title="Mark as passed" onClick={(e) => { e.stopPropagation(); handlePass(item.id); }}>
                         <svg width="12" height="12" viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9 10.5,2.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
@@ -115,10 +122,10 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
         )}
         <div className="sub-bar">
           <button className="btn-ghost" title="View logged failures" onClick={() => setShowFailures(true)}>FAILURES</button>
-          <button className="btn-ghost" title="Flag this inspection for supervisor review" onClick={() => toast('Inspection flagged for review', 't-warn', '⚑')}>FLAG</button>
-          <span className="auto-saved-badge" title="Changes are saved automatically as you work">AUTO-SAVED ✓</span>
+          {!isLocked && <button className="btn-ghost" title="Flag this inspection for supervisor review" onClick={() => toast('Inspection flagged for review', 't-warn', '⚑')}>FLAG</button>}
+          {!isLocked && <span className="auto-saved-badge" title="Changes are saved automatically as you work">AUTO-SAVED ✓</span>}
           {onOpenReport && <button className="btn-ghost" title="View the full inspection report" onClick={onOpenReport}>VIEW REPORT</button>}
-          <button className="btn-lime" style={{ flex: 2 }} title="Submit completed inspection for approval" onClick={handleSubmit}>SUBMIT REPORT</button>
+          {!isLocked && <button className="btn-lime" style={{ flex: 2 }} title="Submit completed inspection for approval" onClick={handleSubmit}>SUBMIT REPORT</button>}
         </div>
       </div>
       <FailureListModal

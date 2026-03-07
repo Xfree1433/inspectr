@@ -57,7 +57,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS failures (
     id TEXT PRIMARY KEY,
     inspection_id TEXT REFERENCES inspections(id) ON DELETE CASCADE,
-    check_item_id TEXT REFERENCES check_items(id),
+    check_item_id TEXT REFERENCES check_items(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     severity TEXT DEFAULT 'low',
     description TEXT DEFAULT '',

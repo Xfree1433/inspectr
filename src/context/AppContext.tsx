@@ -93,7 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [filter, dateFrom, dateTo, activeInspection, toast]);
 
   const loadInspectors = useCallback(async () => {
-    try { setInspectors(await api.getInspectors()); } catch { /* quiet */ }
+    try { setInspectors(await api.getInspectors()); } catch (e) { console.error('Failed to load inspectors', e); }
   }, []);
 
   const selectInspection = useCallback((insp: Inspection) => {
@@ -105,7 +105,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const loadFeed = useCallback(async () => {
-    try { setFeed(await api.getFeed()); } catch { /* quiet */ }
+    try { setFeed(await api.getFeed()); } catch (e) { console.error('Failed to load feed', e); }
   }, []);
 
   const setDateRange = useCallback((from: string, to: string) => {

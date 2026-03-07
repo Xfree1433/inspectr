@@ -409,9 +409,9 @@ app.get('/api/inspections/:id/report', (req, res) => {
   const groups = db.prepare('SELECT * FROM check_groups WHERE inspection_id = ? ORDER BY sort_order').all(req.params.id);
   const sections = groups.map(g => {
     const items = db.prepare('SELECT text, status, fail_note as note FROM check_items WHERE group_id = ? ORDER BY sort_order').all(g.id);
-    const done = items.filter(i => i.status === 'done' || i.status === 'failed').length;
     const passed = items.filter(i => i.status === 'done').length;
-    const score = done > 0 ? Math.round((passed / done) * 100) : 0;
+    // Score = passed / total (consistent with recalcScore — pending items count against score)
+    const score = items.length > 0 ? Math.round((passed / items.length) * 100) : 0;
     return {
       name: g.name,
       score,
