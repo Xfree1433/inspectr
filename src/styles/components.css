@@ -71,7 +71,7 @@
 .ic-bot { display: flex; align-items: center; gap: 10px; }
 .ic-delete {
   display: flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 6px;
+  width: 44px; height: 44px; border-radius: 6px;
   border: none; background: transparent; color: var(--text-ghost);
   cursor: pointer; opacity: 0; transition: opacity .15s, background .15s, color .15s;
 }
@@ -181,6 +181,10 @@
   gap: 10px;
 }
 .cl-scroll { flex: 1; overflow-y: auto; }
+.auto-saved-badge {
+  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: .5px; color: var(--text-ghost); padding: 10px 14px;
+}
 
 /* ══ FEED ══ */
 .feed-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); animation: fadeUp .3s ease both; }
@@ -287,7 +291,7 @@
 .photo-thumb .del-photo {
   position: absolute;
   top: 4px; right: 4px;
-  width: 24px; height: 24px;
+  width: 36px; height: 36px;
   background: rgba(217,48,37,.8);
   border: none;
   border-radius: 4px;

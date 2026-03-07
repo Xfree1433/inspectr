@@ -190,7 +190,7 @@ export function ReportModal({ open, onClose }: Props) {
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={onClose}>Close</button>
-          <button className="btn-lime" onClick={() => setShowConfirm(true)} style={{ marginLeft: 'auto' }}>Submit for Approval</button>
+          <button className="btn-lime" onClick={() => { if (!sigStarted) { toast('Please sign the report before submitting', 't-fail', '!'); return; } setShowConfirm(true); }} style={{ marginLeft: 'auto' }}>Submit for Approval</button>
         </div>
       </div>
       <ConfirmDialog

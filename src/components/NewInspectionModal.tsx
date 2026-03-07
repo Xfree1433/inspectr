@@ -16,7 +16,7 @@ export function NewInspectionModal({ open, onClose }: Props) {
   const [sites, setSites] = useState<Site[]>([]);
   const [showSites, setShowSites] = useState(false);
   const [selectedSite, setSelectedSite] = useState('');
-  const [inspectorId, setInspectorId] = useState('mo');
+  const [inspectorId, setInspectorId] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
@@ -27,8 +27,9 @@ export function NewInspectionModal({ open, onClose }: Props) {
       const now = new Date();
       setDate(now.toISOString().split('T')[0]);
       setTime(now.toTimeString().slice(0, 5));
+      if (!inspectorId && inspectors.length > 0) setInspectorId(inspectors[0].id);
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (siteQuery.length > 0) {

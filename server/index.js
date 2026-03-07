@@ -329,6 +329,8 @@ app.get('/api/inspections/:id/checklist', (req, res) => {
 
 app.patch('/api/check-items/:id', (req, res) => {
   const { status, failNote } = req.body;
+  const validStatuses = ['', 'done', 'failed'];
+  if (status !== undefined && !validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
   if (status !== undefined) db.prepare('UPDATE check_items SET status = ? WHERE id = ?').run(status, req.params.id);
   if (failNote !== undefined) db.prepare('UPDATE check_items SET fail_note = ? WHERE id = ?').run(failNote, req.params.id);
 

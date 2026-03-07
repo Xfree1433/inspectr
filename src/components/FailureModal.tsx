@@ -16,7 +16,7 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
   const [severity, setSeverity] = useState<Severity>('high');
   const [description, setDescription] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
-  const [assigneeId, setAssigneeId] = useState('sr');
+  const [assigneeId, setAssigneeId] = useState(inspectors[0]?.id || '');
   const [dueDate, setDueDate] = useState('');
   const [refStandard, setRefStandard] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -25,10 +25,18 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast('Photo must be under 5 MB', 't-fail', '!'); e.target.value = ''; return; }
+    if (photos.length >= 10) { toast('Maximum 10 photos per failure', 't-fail', '!'); e.target.value = ''; return; }
     const reader = new FileReader();
     reader.onload = ev => { if (ev.target?.result) setPhotos(prev => [...prev, ev.target!.result as string]); };
+    reader.onerror = () => toast('Failed to read photo', 't-fail', '!');
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const validate = () => {
+    if (!description.trim()) { toast('Please enter a failure description', 't-fail', '!'); return false; }
+    return true;
   };
 
   const handleSave = async () => {
@@ -128,8 +136,8 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
         </div>
         <div className="modal-foot">
           <button className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn-danger" onClick={() => setConfirm('log')}>Log Failure</button>
-          <button className="btn-lime" onClick={() => setConfirm('save')} style={{ marginLeft: 'auto' }}>Save & Assign</button>
+          <button className="btn-danger" onClick={() => { if (validate()) setConfirm('log'); }}>Log Failure</button>
+          <button className="btn-lime" onClick={() => { if (validate()) setConfirm('save'); }} style={{ marginLeft: 'auto' }}>Save & Assign</button>
         </div>
       </div>
       <ConfirmDialog

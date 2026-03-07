@@ -116,7 +116,7 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
         <div className="sub-bar">
           <button className="btn-ghost" title="View logged failures" onClick={() => setShowFailures(true)}>FAILURES</button>
           <button className="btn-ghost" title="Flag this inspection for supervisor review" onClick={() => toast('Inspection flagged for review', 't-warn', '⚑')}>FLAG</button>
-          <button className="btn-ghost" title="Save current progress as a draft" onClick={() => toast('Draft saved', 't-info', '✓')}>SAVE</button>
+          <span className="auto-saved-badge" title="Changes are saved automatically as you work">AUTO-SAVED ✓</span>
           {onOpenReport && <button className="btn-ghost" title="View the full inspection report" onClick={onOpenReport}>VIEW REPORT</button>}
           <button className="btn-lime" style={{ flex: 2 }} title="Submit completed inspection for approval" onClick={handleSubmit}>SUBMIT REPORT</button>
         </div>
