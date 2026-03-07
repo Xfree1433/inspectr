@@ -27,6 +27,13 @@ db.exec(`
     item_count INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS companies (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    contact TEXT DEFAULT '',
+    phone TEXT DEFAULT ''
+  );
+
   CREATE TABLE IF NOT EXISTS inspections (
     id TEXT PRIMARY KEY,
     site TEXT NOT NULL,
@@ -34,6 +41,7 @@ db.exec(`
     score INTEGER DEFAULT 0,
     status TEXT DEFAULT 'pending',
     inspector_id TEXT REFERENCES inspectors(id),
+    company_id TEXT REFERENCES companies(id),
     created_at TEXT DEFAULT (datetime('now')),
     notes TEXT DEFAULT ''
   );
@@ -86,6 +94,14 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_inspections_status ON inspections(status);
   CREATE INDEX IF NOT EXISTS idx_inspections_created ON inspections(created_at DESC);
+`);
+
+// Migration: add company_id column if it doesn't exist (for existing databases)
+try {
+  db.exec("ALTER TABLE inspections ADD COLUMN company_id TEXT REFERENCES companies(id)");
+} catch { /* column already exists */ }
+
+db.exec(`
   CREATE INDEX IF NOT EXISTS idx_check_groups_insp ON check_groups(inspection_id);
   CREATE INDEX IF NOT EXISTS idx_check_items_group ON check_items(group_id);
   CREATE INDEX IF NOT EXISTS idx_failures_insp ON failures(inspection_id);
@@ -108,6 +124,11 @@ if (count.c === 0) {
     insInspector.run('al', 'AL', 'A. Larsson');
     insInspector.run('cb', 'CB', 'C. Balogun');
     insInspector.run('jw', 'JW', 'J. Walsh');
+
+    const insCompany = db.prepare('INSERT INTO companies (id, name, contact, phone) VALUES (?, ?, ?, ?)');
+    insCompany.run('co-1', 'Metro Water Authority', 'J. Henderson', '555-0100');
+    insCompany.run('co-2', 'Coastal Transport Corp', 'R. Chen', '555-0200');
+    insCompany.run('co-3', 'GridCo Energy', 'D. Patel', '555-0300');
 
     const sites = [
       'Riverside Pump Station #4', 'Harbor Bridge Section 7', 'Northgate Substation',

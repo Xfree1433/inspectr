@@ -13,6 +13,13 @@ export interface Site {
   name: string;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  contact: string;
+  phone: string;
+}
+
 export interface Inspection {
   id: string;
   site: string;
@@ -22,6 +29,8 @@ export interface Inspection {
   inspectorId: string;
   inspectorInitials: string;
   inspectorName: string;
+  companyId: string;
+  companyName: string;
   time: string;
   createdAt: string;
 }

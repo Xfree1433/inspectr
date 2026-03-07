@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
-import type { Template, Site } from '../types';
+import type { Template, Site, Company } from '../types';
 
 interface Props {
   open: boolean;
@@ -16,6 +16,8 @@ export function NewInspectionModal({ open, onClose }: Props) {
   const [sites, setSites] = useState<Site[]>([]);
   const [showSites, setShowSites] = useState(false);
   const [selectedSite, setSelectedSite] = useState('');
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyId, setCompanyId] = useState('');
   const [inspectorId, setInspectorId] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -24,6 +26,7 @@ export function NewInspectionModal({ open, onClose }: Props) {
   useEffect(() => {
     if (open) {
       api.getTemplates().then(setTemplates).catch(() => {});
+      api.getCompanies().then(setCompanies).catch(() => {});
       const now = new Date();
       setDate(now.toISOString().split('T')[0]);
       setTime(now.toTimeString().slice(0, 5));
@@ -47,6 +50,7 @@ export function NewInspectionModal({ open, onClose }: Props) {
       inspectorId,
       notes,
       templateId: selectedTemplate,
+      companyId: companyId || undefined,
     });
     toast(`Inspection created: ${(selectedSite || siteQuery).substring(0, 28)}`, 't-pass', '✓');
     refreshAll();
@@ -107,6 +111,21 @@ export function NewInspectionModal({ open, onClose }: Props) {
               </div>
             )}
           </div>
+          {companies.length > 0 && (
+            <div className="field-group">
+              <div className="field-label">Client Company</div>
+              <div className="assignee-row">
+                <button className={`assignee-pill${!companyId ? ' active' : ''}`} onClick={() => setCompanyId('')}>
+                  None
+                </button>
+                {companies.map(c => (
+                  <button key={c.id} className={`assignee-pill${companyId === c.id ? ' active' : ''}`} onClick={() => setCompanyId(c.id)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="field-group">
             <div className="field-label">Inspector</div>
             <div className="assignee-row">

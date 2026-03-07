@@ -48,7 +48,7 @@ export function InspectionCard({ inspection: r, selected, index, onClick }: Prop
           <div>
             <div className="ic-id">{r.id}</div>
             <div className="ic-site">{r.site}</div>
-            <div className="ic-type">{r.type}</div>
+            <div className="ic-type">{r.type}{r.companyName ? ` · ${r.companyName}` : ''}</div>
           </div>
           <div className="ic-meta">
             <div className="ic-who">

@@ -13,6 +13,7 @@ import { FailureModal } from './components/FailureModal';
 import { NewInspectionModal } from './components/NewInspectionModal';
 import { ReportModal } from './components/ReportModal';
 import { ProfileModal } from './components/ProfileModal';
+import { SettingsModal } from './components/SettingsModal';
 import { SearchBar } from './components/SearchBar';
 import './styles/global.css';
 import './styles/layout.css';
@@ -23,6 +24,7 @@ function AppInner() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [failModal, setFailModal] = useState<{ open: boolean; title: string; checkItemId: string }>({ open: false, title: '', checkItemId: '' });
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
 
@@ -35,7 +37,7 @@ function AppInner() {
   return (
     <>
       <ToastContainer />
-      <Header onNewInspection={() => setShowNewModal(true)} onOpenProfile={() => setShowProfileModal(true)} />
+      <Header onNewInspection={() => setShowNewModal(true)} onOpenProfile={() => setShowProfileModal(true)} onOpenSettings={() => setShowSettingsModal(true)} />
       <SearchBar />
       <StatsBar />
 
@@ -82,6 +84,7 @@ function AppInner() {
       <NewInspectionModal open={showNewModal} onClose={() => setShowNewModal(false)} />
       <ReportModal open={showReportModal} onClose={() => setShowReportModal(false)} />
       <ProfileModal open={showProfileModal} onClose={() => setShowProfileModal(false)} />
+      <SettingsModal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
     </>
   );
 }

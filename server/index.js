@@ -191,24 +191,82 @@ const TEMPLATE_CHECKLISTS = {
   ],
 };
 
+// ── Companies ──
+app.get('/api/companies', (_req, res) => {
+  res.json(db.prepare('SELECT * FROM companies ORDER BY name').all());
+});
+app.post('/api/companies', (req, res) => {
+  const { name, contact, phone } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const id = `co-${uuid().slice(0, 8)}`;
+  db.prepare('INSERT INTO companies (id, name, contact, phone) VALUES (?, ?, ?, ?)').run(id, name.trim(), contact?.trim() || '', phone?.trim() || '');
+  res.status(201).json({ id, name: name.trim(), contact: contact?.trim() || '', phone: phone?.trim() || '' });
+});
+app.patch('/api/companies/:id', (req, res) => {
+  const { name, contact, phone } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  db.prepare('UPDATE companies SET name = ?, contact = ?, phone = ? WHERE id = ?').run(name.trim(), contact?.trim() || '', phone?.trim() || '', req.params.id);
+  res.json({ ok: true });
+});
+app.delete('/api/companies/:id', (req, res) => {
+  db.prepare('DELETE FROM companies WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 // ── Inspectors ──
 app.get('/api/inspectors', (_req, res) => {
-  res.json(db.prepare('SELECT * FROM inspectors').all());
+  res.json(db.prepare('SELECT * FROM inspectors ORDER BY name').all());
+});
+app.post('/api/inspectors', (req, res) => {
+  const { name, initials } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const id = uuid().slice(0, 8);
+  const init = initials?.trim().toUpperCase() || name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  db.prepare('INSERT INTO inspectors (id, initials, name) VALUES (?, ?, ?)').run(id, init, name.trim());
+  res.status(201).json({ id, initials: init, name: name.trim() });
+});
+app.patch('/api/inspectors/:id', (req, res) => {
+  const { name, initials } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const init = initials?.trim().toUpperCase() || name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  db.prepare('UPDATE inspectors SET name = ?, initials = ? WHERE id = ?').run(name.trim(), init, req.params.id);
+  res.json({ ok: true });
+});
+app.delete('/api/inspectors/:id', (req, res) => {
+  db.prepare('DELETE FROM inspectors WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 // ── Sites ──
 app.get('/api/sites', (req, res) => {
   const q = req.query.q;
   if (q) {
-    res.json(db.prepare("SELECT * FROM sites WHERE name LIKE ?").all(`%${q}%`));
+    res.json(db.prepare("SELECT * FROM sites WHERE name LIKE ? ORDER BY name").all(`%${q}%`));
   } else {
-    res.json(db.prepare('SELECT * FROM sites').all());
+    res.json(db.prepare('SELECT * FROM sites ORDER BY name').all());
   }
+});
+app.post('/api/sites', (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const id = `st-${uuid().slice(0, 8)}`;
+  db.prepare('INSERT INTO sites (id, name) VALUES (?, ?)').run(id, name.trim());
+  res.status(201).json({ id, name: name.trim() });
+});
+app.patch('/api/sites/:id', (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  db.prepare('UPDATE sites SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
+  res.json({ ok: true });
+});
+app.delete('/api/sites/:id', (req, res) => {
+  db.prepare('DELETE FROM sites WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 // ── Templates ──
 app.get('/api/templates', (_req, res) => {
-  res.json(db.prepare('SELECT id, icon, name, item_count as count FROM templates').all());
+  res.json(db.prepare('SELECT id, icon, name, item_count as count FROM templates ORDER BY name').all());
 });
 
 // ── Search ──
@@ -217,13 +275,14 @@ app.get('/api/search', (req, res) => {
   if (!q) return res.json([]);
   const like = `%${q}%`;
   const rows = db.prepare(`
-    SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name
+    SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name, c.name as company_name
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
-    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ?
+    LEFT JOIN companies c ON i.company_id = c.id
+    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ? OR c.name LIKE ?
     ORDER BY i.created_at DESC
     LIMIT 20
-  `).all(like, like, like, like);
+  `).all(like, like, like, like, like);
   res.json(rows.map(r => ({
     id: r.id,
     site: r.site,
@@ -233,6 +292,8 @@ app.get('/api/search', (req, res) => {
     inspectorId: r.inspector_id,
     inspectorInitials: r.inspector_initials,
     inspectorName: r.inspector_name,
+    companyId: r.company_id || '',
+    companyName: r.company_name || '',
     createdAt: r.created_at,
     time: formatTimeAgo(r.created_at),
   })));
@@ -267,9 +328,10 @@ app.get('/api/inspections', (req, res) => {
   if (to) { conditions.push('i.created_at <= ?'); params.push(to + 'T23:59:59'); }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = db.prepare(`
-    SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name
+    SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name, c.name as company_name
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
+    LEFT JOIN companies c ON i.company_id = c.id
     ${where}
     ORDER BY i.created_at DESC
   `).all(...params);
@@ -282,15 +344,17 @@ app.get('/api/inspections', (req, res) => {
     inspectorId: r.inspector_id,
     inspectorInitials: r.inspector_initials,
     inspectorName: r.inspector_name,
+    companyId: r.company_id || '',
+    companyName: r.company_name || '',
     createdAt: r.created_at,
     time: formatTimeAgo(r.created_at),
   })));
 });
 
 app.post('/api/inspections', (req, res) => {
-  const { site, type, inspectorId, notes, templateId } = req.body;
+  const { site, type, inspectorId, notes, templateId, companyId } = req.body;
   const id = `INS-${String(db.prepare('SELECT COUNT(*) as c FROM inspections').get().c + 892).padStart(4, '0')}`;
-  db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, notes) VALUES (?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, notes || '');
+  db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, company_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, companyId || null, notes || '');
 
   // Create checklist groups based on template
   if (templateId) {
