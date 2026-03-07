@@ -111,6 +111,7 @@
   top: calc(var(--hh) + var(--st));
   left: 0; right: 0;
   z-index: 300;
+  min-height: var(--sh);
 }
 .stats::-webkit-scrollbar { display: none; }
 .sc {
@@ -243,8 +244,8 @@
   .logo-sub { display: inline; }
   .hdr-clock { display: block; }
   .hdr { padding: 0 24px; }
-  :root { --sh: 74px; }
-  .sc { min-width: 130px; padding: 12px 22px; }
+  :root { --sh: 90px; }
+  .sc { min-width: 130px; padding: 14px 22px; }
   .sv { font-size: 38px; }
   .bnav { display: none; }
   .app {
@@ -272,9 +273,9 @@
   .feed-col { height: 210px; overflow-y: auto; flex-shrink: 0; }
 }
 @media (min-width: 1024px) {
-  :root { --sh: 80px; }
+  :root { --sh: 100px; }
   .stats { flex-wrap: nowrap; }
-  .sc { flex: 1; min-width: 0; padding: 16px 26px; }
+  .sc { flex: 1; min-width: 0; padding: 18px 26px; }
   .sv { font-size: 44px; }
   .app { grid-template-columns: 1fr 380px; }
   .icard { padding: 14px 20px; }
