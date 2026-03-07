@@ -1,10 +1,10 @@
 /* ══ SECTION HINTS ══ */
 .section-hint {
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--text-ghost);
-  padding: 8px 16px 10px;
+  color: var(--text-dim);
+  padding: 10px 16px 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   line-height: 1.5;
@@ -30,7 +30,7 @@
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-ghost);
+  color: var(--text-dim);
   line-height: 1.6;
   max-width: 300px;
 }
@@ -44,9 +44,9 @@
 }
 .field-hint {
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-ghost);
+  color: var(--text-dim);
   margin-top: 5px;
   line-height: 1.5;
 }
