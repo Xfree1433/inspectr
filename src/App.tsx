@@ -11,6 +11,7 @@ import { ToastContainer } from './components/ToastContainer';
 import { FailureModal } from './components/FailureModal';
 import { NewInspectionModal } from './components/NewInspectionModal';
 import { ReportModal } from './components/ReportModal';
+import { SearchBar } from './components/SearchBar';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -32,6 +33,7 @@ function AppInner() {
     <>
       <ToastContainer />
       <Header onNewInspection={() => setShowNewModal(true)} />
+      <SearchBar />
       <StatsBar />
 
       <div className="app">

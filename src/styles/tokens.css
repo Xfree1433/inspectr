@@ -23,6 +23,7 @@
   --sb: env(safe-area-inset-bottom, 0px);
   --st: env(safe-area-inset-top, 0px);
   --hh: 56px;
+  --srch: 58px;
   --sh: 82px;
   --nh: 64px;
 }

@@ -27,6 +27,33 @@ app.get('/api/templates', (_req, res) => {
   res.json(db.prepare('SELECT id, icon, name, item_count as count FROM templates').all());
 });
 
+// ── Search ──
+app.get('/api/search', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json([]);
+  const like = `%${q}%`;
+  const rows = db.prepare(`
+    SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name
+    FROM inspections i
+    LEFT JOIN inspectors ins ON i.inspector_id = ins.id
+    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ?
+    ORDER BY i.created_at DESC
+    LIMIT 20
+  `).all(like, like, like, like);
+  res.json(rows.map(r => ({
+    id: r.id,
+    site: r.site,
+    type: r.type,
+    score: r.score,
+    status: r.status,
+    inspectorId: r.inspector_id,
+    inspectorInitials: r.inspector_initials,
+    inspectorName: r.inspector_name,
+    createdAt: r.created_at,
+    time: formatTimeAgo(r.created_at),
+  })));
+});
+
 // ── Stats ──
 app.get('/api/stats', (_req, res) => {
   const passed = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='pass'").get().c;

@@ -115,7 +115,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: fixed;
-  top: calc(var(--hh) + var(--st));
+  top: calc(var(--hh) + var(--st) + var(--srch));
   left: 0; right: 0;
   z-index: 300;
   min-height: var(--sh);
@@ -147,7 +147,7 @@
 /* ══ APP LAYOUT ══ */
 .app {
   position: fixed;
-  top: calc(var(--hh) + var(--st) + var(--sh));
+  top: calc(var(--hh) + var(--st) + var(--srch) + var(--sh));
   bottom: calc(var(--nh) + var(--sb));
   left: 0; right: 0;
   overflow: hidden;

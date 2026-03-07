@@ -16,6 +16,7 @@ export const api = {
   getTemplates: () => request<import('../types').Template[]>('/api/templates'),
 
   getInspections: (status?: string) => request<import('../types').Inspection[]>(`/api/inspections${status && status !== 'all' ? `?status=${status}` : ''}`),
+  searchInspections: (q: string) => request<import('../types').Inspection[]>(`/api/search?q=${encodeURIComponent(q)}`),
   createInspection: (data: { site: string; type: string; inspectorId: string; notes?: string; templateId?: string }) =>
     request<{ id: string }>('/api/inspections', { method: 'POST', body: JSON.stringify(data) }),
 
