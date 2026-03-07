@@ -202,7 +202,7 @@ app.delete('/api/template-item-photos/:id', (req, res) => {
 // ── Documents ──
 app.get('/api/documents', (req, res) => {
   const { companyId, siteId } = req.query;
-  let query = 'SELECT d.*, c.name as company_name, s.name as site_name FROM documents d LEFT JOIN companies c ON d.company_id = c.id LEFT JOIN sites s ON d.site_id = s.id';
+  let query = 'SELECT d.id, d.name, d.file_type, d.company_id, d.site_id, d.created_at, c.name as company_name, s.name as site_name FROM documents d LEFT JOIN companies c ON d.company_id = c.id LEFT JOIN sites s ON d.site_id = s.id';
   const conditions = [];
   const params = [];
   if (companyId) { conditions.push('d.company_id = ?'); params.push(companyId); }
@@ -211,7 +211,7 @@ app.get('/api/documents', (req, res) => {
   query += ' ORDER BY d.created_at DESC';
   const rows = db.prepare(query).all(...params);
   res.json(rows.map(r => ({
-    id: r.id, name: r.name, fileType: r.file_type, dataUrl: r.data_url,
+    id: r.id, name: r.name, fileType: r.file_type,
     companyId: r.company_id || '', companyName: r.company_name || '',
     siteId: r.site_id || '', siteName: r.site_name || '',
     createdAt: r.created_at,
@@ -231,6 +231,12 @@ app.patch('/api/documents/:id', (req, res) => {
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   db.prepare('UPDATE documents SET name = ?, company_id = ?, site_id = ? WHERE id = ?').run(name.trim(), companyId || '', siteId || '', req.params.id);
   res.json({ ok: true });
+});
+
+app.get('/api/documents/:id/download', (req, res) => {
+  const doc = db.prepare('SELECT data_url, name, file_type FROM documents WHERE id = ?').get(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Not found' });
+  res.json({ dataUrl: doc.data_url, name: doc.name, fileType: doc.file_type });
 });
 
 app.delete('/api/documents/:id', (req, res) => {

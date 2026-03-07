@@ -127,7 +127,6 @@ export interface Document {
   id: string;
   name: string;
   fileType: string;
-  dataUrl: string;
   companyId: string;
   companyName: string;
   siteId: string;

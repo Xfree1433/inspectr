@@ -96,6 +96,8 @@ export const api = {
     request<{ id: string; name: string }>('/api/documents', { method: 'POST', body: JSON.stringify(data) }),
   updateDocument: (id: string, data: { name: string; companyId?: string; siteId?: string }) =>
     request<{ ok: boolean }>(`/api/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  downloadDocument: (id: string) =>
+    request<{ dataUrl: string; name: string; fileType: string }>(`/api/documents/${id}/download`),
   deleteDocument: (id: string) =>
     request<{ ok: boolean }>(`/api/documents/${id}`, { method: 'DELETE' }),
 

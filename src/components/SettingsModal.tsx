@@ -405,11 +405,17 @@ export function SettingsModal({ open, onClose }: Props) {
                           </div>
                         </div>
                         <div className="settings-item-actions">
-                          {doc.dataUrl && (
-                            <a className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', textDecoration: 'none' }} href={doc.dataUrl} download={doc.name} title="Download">
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            </a>
-                          )}
+                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={async () => {
+                            try {
+                              const data = await api.downloadDocument(doc.id);
+                              const a = document.createElement('a');
+                              a.href = data.dataUrl;
+                              a.download = data.name;
+                              a.click();
+                            } catch { toast('Download failed', 't-fail', '!'); }
+                          }} title="Download">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          </button>
                           <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={() => startEditDoc(doc)}>Edit</button>
                           <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', color: 'var(--fail)' }} onClick={() => deleteDoc(doc.id)}>Delete</button>
                         </div>
