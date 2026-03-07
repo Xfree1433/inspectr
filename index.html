@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>INSPECTR</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════
+   TOKENS
+══════════════════════════════════════ */
+:root {
+  --lime:#C8FF00; --lime-dim:#9DC300; --lime-glow:rgba(200,255,0,.10);
+  --bg:#0A0A09; --surface:#111110; --surface2:#181817; --surface3:#1F1F1E;
+  --border:#272725; --border-hi:#363634;
+  --text:#E8E8E2; --text-dim:#8A8A82; --text-ghost:#444442;
+  --pass:#C8FF00; --fail:#FF3B30; --warn:#FF9500;
+  --fail-bg:rgba(255,59,48,.12); --pass-bg:rgba(200,255,0,.10); --warn-bg:rgba(255,149,0,.12);
+  --sb:env(safe-area-inset-bottom,0px); --st:env(safe-area-inset-top,0px);
+  --hh:52px; --sh:66px; --nh:60px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.4;overscroll-behavior:none}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9000;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.022) 2px,rgba(0,0,0,.022) 4px)}
+
+/* ══ SCROLLBAR ══ */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-hi)}
+
+/* ══ HEADER ══ */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:0 16px;padding-top:var(--st);height:calc(var(--hh) + var(--st));background:var(--surface);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:400}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:4px;color:var(--lime);text-shadow:0 0 18px rgba(200,255,0,.35);line-height:1;display:flex;align-items:baseline;gap:10px}
+.logo-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text-ghost);display:none}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.offline-pill{display:none;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--warn);background:var(--warn-bg);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1.5px;color:var(--warn)}
+.offline-pill.show{display:flex}
+.live-badge{display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--lime)}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--lime);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(200,255,0,.5)}50%{opacity:.7;box-shadow:0 0 0 4px rgba(200,255,0,0)}}
+.hdr-clock{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px;display:none}
+.btn-new{height:34px;padding:0 14px;background:var(--lime);color:#0A0A09;border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;gap:6px;transition:all .15s;flex-shrink:0}
+.btn-new:hover{background:#D8FF20;box-shadow:0 0 14px rgba(200,255,0,.4)}
+
+/* ══ STATS ══ */
+.stats{display:flex;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);background:var(--surface);position:fixed;top:calc(var(--hh) + var(--st));left:0;right:0;z-index:300}
+.stats::-webkit-scrollbar{display:none}
+.sc{flex-shrink:0;padding:10px 16px;border-right:1px solid var(--border);min-width:100px;position:relative;cursor:default}
+.sc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.sc.pass::after{background:var(--lime)}.sc.fail::after{background:var(--fail)}.sc.pend::after{background:var(--warn)}.sc.rate::after{background:var(--border-hi)}
+.sl{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-ghost);margin-bottom:2px}
+.sv{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:1px;line-height:1}
+.sc.pass .sv{color:var(--lime)}.sc.fail .sv{color:var(--fail)}.sc.pend .sv{color:var(--warn)}.sc.rate .sv{color:var(--text)}
+.sd{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text-ghost);margin-top:1px}
+.sd.up{color:var(--lime-dim)}.sd.dn{color:var(--fail)}
+
+/* ══ LAYOUT ══ */
+.app{position:fixed;top:calc(var(--hh) + var(--st) + var(--sh));bottom:calc(var(--nh) + var(--sb));left:0;right:0;overflow:hidden}
+.panel{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:none;-webkit-overflow-scrolling:touch}
+.panel.active{display:block}
+
+/* ══ BOTTOM NAV ══ */
+.bnav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--nh) + var(--sb));padding-bottom:var(--sb);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:400}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:transparent;color:var(--text-ghost);font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;transition:color .15s;position:relative}
+.nb::after{content:'';position:absolute;top:0;left:22%;right:22%;height:2px;background:var(--lime);transform:scaleX(0);transition:transform .2s ease}
+.nb.active{color:var(--lime)}.nb.active::after{transform:scaleX(1)}
+.nb svg{width:20px;height:20px}
+.nbadge{position:absolute;top:6px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;background:var(--fail);color:#fff;font-size:8px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;justify-content:center}
+
+/* ══ SHARED ══ */
+.badge{display:inline-flex;align-items:center;padding:3px 7px;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase}
+.bp{background:var(--pass-bg);color:var(--pass);border:1px solid rgba(200,255,0,.25)}
+.bf{background:var(--fail-bg);color:var(--fail);border:1px solid rgba(255,59,48,.25)}
+.bn{background:var(--warn-bg);color:var(--warn);border:1px solid rgba(255,149,0,.25)}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;flex-shrink:0}
+.sec-t{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:3px}
+.sec-c{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-ghost);letter-spacing:1px}
+.btn-ghost{padding:9px 16px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;transition:all .15s}
+.btn-ghost:hover{border-color:var(--lime);color:var(--lime)}
+.btn-lime{padding:9px 20px;background:var(--lime);color:#0A0A09;border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:2px;transition:all .15s}
+.btn-lime:hover{background:#D8FF20;box-shadow:0 0 14px rgba(200,255,0,.4)}
+.btn-danger{padding:9px 16px;border:1px solid var(--fail);background:var(--fail-bg);color:var(--fail);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;transition:all .15s}
+
+/* ══ FILTER BAR ══ */
+.fbar{display:flex;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.fbar::-webkit-scrollbar{display:none}
+.fpill{padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;white-space:nowrap;transition:all .15s}
+.fpill:hover,.fpill.active{border-color:var(--lime);color:var(--lime);background:var(--lime-glow)}
+
+/* ══ INSPECTION CARDS ══ */
+.icard{border-bottom:1px solid var(--border);padding:13px 16px;cursor:pointer;transition:background .12s;animation:fadeUp .3s ease both;position:relative;overflow:hidden}
+.icard:active,.icard.sel{background:var(--surface2)}
+.icard.sel{border-left:3px solid var(--lime)}
+.swipe-action{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--fail-bg);border-left:1px solid var(--fail);display:flex;align-items:center;justify-content:center;transform:translateX(100%);transition:transform .2s ease;color:var(--fail);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;flex-direction:column;gap:4px}
+.icard.swiped .swipe-action{transform:translateX(0)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.ic-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ic-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--lime);letter-spacing:1px}
+.ic-site{font-size:15px;font-weight:600;color:var(--text)}
+.ic-type{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:1px}
+.ic-bot{display:flex;align-items:center;gap:10px}
+.sw{display:flex;align-items:center;gap:7px;flex:1}
+.st{flex:1;height:3px;background:var(--surface3);max-width:80px}
+.sf{height:100%}
+.sn{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;min-width:26px}
+.ic-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.av{width:22px;height:22px;background:var(--surface3);border:1px solid var(--border-hi);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text-dim)}
+.ic-who{display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim)}
+.ic-time{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-ghost)}
+
+/* ══ CHECKLIST ══ */
+.cl-hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px 12px;position:sticky;top:0;z-index:10}
+.cl-site{font-family:'Bebas Neue',sans-serif;font-size:21px;letter-spacing:2px}
+.cl-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cl-prog{display:flex;align-items:center;gap:10px;margin-top:10px}
+.ptr{flex:1;height:4px;background:var(--surface3)}
+.pf{height:100%;background:var(--lime);box-shadow:0 0 8px rgba(200,255,0,.5);transition:width .4s ease}
+.pp{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--lime);min-width:32px;text-align:right}
+.pfr{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-ghost);min-width:30px}
+.grp{padding:10px 16px 4px;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--text-ghost);border-top:1px solid var(--border);margin-top:4px}
+.crow{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:1px solid rgba(39,39,37,.6);cursor:pointer;transition:background .1s;user-select:none;-webkit-user-select:none}
+.crow:active{background:var(--surface2)}
+.cbox{width:24px;height:24px;flex-shrink:0;border:1.5px solid var(--border-hi);display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .15s}
+.crow.done .cbox{background:var(--lime);border-color:var(--lime)}
+.crow.failed .cbox{background:var(--fail-bg);border-color:var(--fail)}
+.cbox svg{width:11px;height:11px}
+.crow-body{flex:1;min-width:0}
+.crow-text{font-size:14px;color:var(--text);line-height:1.35}
+.crow.done .crow-text{color:var(--text-ghost);text-decoration:line-through;text-decoration-color:var(--text-ghost)}
+.fail-note{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--fail);margin-top:5px;padding:5px 8px;background:var(--fail-bg);border-left:2px solid var(--fail);line-height:1.4;cursor:pointer}
+.fail-note:hover{background:rgba(255,59,48,.2)}
+.crow-acts{display:flex;gap:6px;flex-shrink:0;margin-top:1px}
+.act{width:32px;height:32px;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;color:var(--text-ghost)}
+.act:active{transform:scale(.88)}
+.act-p:active,.act-p.on{border-color:var(--lime);color:var(--lime);background:var(--lime-glow)}
+.act-f:active,.act-f.on{border-color:var(--fail);color:var(--fail);background:var(--fail-bg)}
+.sub-bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:8px}
+
+/* ══ FEED ══ */
+.feed-item{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);animation:fadeUp .3s ease both}
+.fdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.fb{flex:1}.ft{font-size:13px;color:var(--text-dim);line-height:1.4}.ft strong{color:var(--text);font-weight:500}
+.tag-p{color:var(--lime);font-weight:600}.tag-f{color:var(--fail);font-weight:600}.tag-n{color:var(--warn);font-weight:600}
+.ftime{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-ghost);margin-top:3px}
+
+/* ══ MODALS BASE ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-top:1px solid var(--border-hi);width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;animation:slideUp .25s ease both}
+@keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px}
+.modal-close{width:32px;height:32px;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-dim);transition:all .15s}
+.modal-close:hover{border-color:var(--fail);color:var(--fail)}
+.modal-body{overflow-y:auto;flex:1;padding:20px}
+.modal-foot{display:flex;gap:8px;padding:16px 20px;border-top:1px solid var(--border);flex-shrink:0}
+
+/* ══ FAILURE DETAIL MODAL ══ */
+.fail-severity-row{display:flex;gap:8px;margin-bottom:16px}
+.sev-btn{flex:1;padding:10px 8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);transition:all .15s;text-align:center}
+.sev-btn.active-low{border-color:var(--warn);color:var(--warn);background:var(--warn-bg)}
+.sev-btn.active-med{border-color:orange;color:orange;background:rgba(255,140,0,.12)}
+.sev-btn.active-high{border-color:var(--fail);color:var(--fail);background:var(--fail-bg)}
+.field-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-ghost);margin-bottom:6px}
+.field-input{width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;outline:none;transition:border .15s;resize:none}
+.field-input:focus{border-color:var(--lime)}
+.field-group{margin-bottom:16px}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.photo-thumb{aspect-ratio:1;background:var(--surface2);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;color:var(--text-ghost);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;gap:6px;position:relative;overflow:hidden}
+.photo-thumb:hover,.photo-thumb.add-btn:hover{border-color:var(--lime);color:var(--lime)}
+.photo-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.photo-thumb .del-photo{position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(255,59,48,.8);border:none;cursor:pointer;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.photo-thumb:hover .del-photo{opacity:1}
+.assignee-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.assignee-pill{padding:5px 12px;border:1px solid var(--border);background:transparent;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);transition:all .15s;display:flex;align-items:center;gap:5px}
+.assignee-pill:hover,.assignee-pill.active{border-color:var(--lime);color:var(--lime);background:var(--lime-glow)}
+.assignee-pill .av{width:18px;height:18px;font-size:7px}
+
+/* ══ NEW INSPECTION MODAL ══ */
+.template-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.tmpl-card{padding:12px;border:1px solid var(--border);background:transparent;cursor:pointer;transition:all .15s;text-align:left}
+.tmpl-card:hover,.tmpl-card.active{border-color:var(--lime);background:var(--lime-glow)}
+.tmpl-icon{font-size:18px;margin-bottom:6px}
+.tmpl-name{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:2px}
+.tmpl-count{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text-ghost)}
+.site-search{position:relative;margin-bottom:16px}
+.site-search input{width:100%;padding:10px 12px 10px 36px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;outline:none;transition:border .15s}
+.site-search input:focus{border-color:var(--lime)}
+.site-search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-ghost)}
+.site-results{background:var(--surface2);border:1px solid var(--border);border-top:none;max-height:160px;overflow-y:auto}
+.site-opt{padding:10px 12px;cursor:pointer;font-size:13px;transition:background .1s;border-bottom:1px solid var(--border)}
+.site-opt:last-child{border-bottom:none}
+.site-opt:hover{background:var(--surface3);color:var(--lime)}
+.site-opt-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:2px}
+
+/* ══ REPORT VIEW ══ */
+.report-panel{background:var(--surface);padding:0}
+.report-hero{background:var(--surface2);border-bottom:1px solid var(--border);padding:20px 20px 16px}
+.report-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--lime);letter-spacing:2px;margin-bottom:4px}
+.report-site{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px}
+.report-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px;display:flex;flex-wrap:wrap;gap:12px}
+.report-score-big{display:flex;align-items:center;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+.rsb-num{font-family:'Bebas Neue',sans-serif;font-size:52px;line-height:1;letter-spacing:2px}
+.rsb-bar-wrap{flex:1}
+.rsb-label{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-ghost);margin-bottom:6px}
+.rsb-track{height:6px;background:var(--surface3)}
+.rsb-fill{height:100%;background:var(--lime);box-shadow:0 0 10px rgba(200,255,0,.4)}
+.report-sections{padding:0}
+.rs-group{border-bottom:1px solid var(--border)}
+.rs-group-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--surface);cursor:pointer}
+.rs-group-title{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim)}
+.rs-group-score{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600}
+.rs-item{display:flex;align-items:center;gap:10px;padding:10px 20px;border-top:1px solid var(--border);background:var(--surface2)}
+.rs-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rs-text{flex:1;font-size:13px;color:var(--text-dim)}
+.rs-fail-detail{background:var(--fail-bg);padding:10px 20px;border-top:1px solid rgba(255,59,48,.2)}
+.rs-fail-note{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--fail);line-height:1.4}
+.rs-fail-photos{display:flex;gap:6px;margin-top:8px}
+.rs-photo{width:60px;height:60px;background:var(--surface3);border:1px solid var(--border-hi);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--text-ghost);font-size:11px}
+.sig-block{margin:20px;border:1px solid var(--border);padding:16px}
+.sig-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text-ghost);margin-bottom:10px}
+.sig-canvas{width:100%;height:80px;background:var(--surface2);border:1px dashed var(--border-hi);display:flex;align-items:center;justify-content:center;color:var(--text-ghost);font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:crosshair;position:relative}
+canvas#sigcanvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* ══ CAMERA ══ */
+.camera-overlay{position:fixed;inset:0;background:#000;z-index:600;display:none;flex-direction:column}
+.camera-overlay.open{display:flex}
+.cam-viewfinder{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+video#camvid{width:100%;height:100%;object-fit:cover}
+.cam-corner{position:absolute;width:24px;height:24px;border-color:var(--lime);border-style:solid;border-width:0}
+.cam-corner.tl{top:24px;left:24px;border-top-width:2px;border-left-width:2px}
+.cam-corner.tr{top:24px;right:24px;border-top-width:2px;border-right-width:2px}
+.cam-corner.bl{bottom:24px;left:24px;border-bottom-width:2px;border-left-width:2px}
+.cam-corner.br{bottom:24px;right:24px;border-bottom-width:2px;border-right-width:2px}
+.cam-label{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--lime);background:rgba(0,0,0,.6);padding:4px 12px}
+.cam-bar{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;padding-bottom:calc(20px + var(--sb));background:#0A0A09;border-top:1px solid #1a1a18}
+.cam-shutter{width:64px;height:64px;border-radius:50%;background:transparent;border:3px solid var(--lime);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;position:relative}
+.cam-shutter::after{content:'';width:52px;height:52px;border-radius:50%;background:var(--lime);position:absolute;transition:all .15s}
+.cam-shutter:active::after{width:44px;height:44px}
+.cam-cancel{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2px;color:var(--text-dim);background:transparent;border:none;cursor:pointer;padding:10px}
+.cam-flash{position:absolute;inset:0;background:white;opacity:0;pointer-events:none;animation:none}
+.cam-flash.snap{animation:flash .3s ease}
+@keyframes flash{0%{opacity:1}100%{opacity:0}}
+
+/* ══ TOAST ══ */
+.toast-container{position:fixed;top:calc(var(--hh) + var(--st) + var(--sh) + 10px);left:50%;transform:translateX(-50%);z-index:800;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:90%;max-width:360px}
+.toast{background:var(--surface2);border:1px solid var(--border-hi);padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:1px;display:flex;align-items:center;gap:10px;animation:toastIn .25s ease both;width:100%}
+.toast.out{animation:toastOut .25s ease both;pointer-events:none}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-8px)}}
+.toast.t-pass{border-color:rgba(200,255,0,.4);color:var(--lime)}
+.toast.t-fail{border-color:rgba(255,59,48,.4);color:var(--fail)}
+.toast.t-info{border-color:var(--border-hi);color:var(--text-dim)}
+.toast.t-warn{border-color:rgba(255,149,0,.4);color:var(--warn)}
+.tdot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* ══ TABLET / DESKTOP ══ */
+@media(min-width:768px){
+  .logo-sub{display:inline}
+  .hdr-clock{display:block}
+  .hdr{padding:0 24px}
+  :root{--sh:74px}
+  .sc{min-width:130px;padding:12px 22px}
+  .sv{font-size:38px}
+  .bnav{display:none}
+  .app{bottom:0;display:grid;grid-template-columns:1fr 320px;grid-template-rows:1fr}
+  .panel{display:flex!important;flex-direction:column;position:relative;inset:auto;overflow:hidden}
+  #panel-list{border-right:1px solid var(--border)}
+  .list-scroll{flex:1;overflow-y:auto}
+  #panel-check{overflow:hidden}
+  .cl-scroll{flex:1;overflow-y:auto}
+  #panel-feed{display:none!important}
+  .dright{display:flex!important;flex-direction:column;overflow:hidden}
+  .cl-col{flex:1;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--border)}
+  .feed-col{height:210px;overflow-y:auto;flex-shrink:0}
+  .modal{border-radius:0;max-height:86vh;margin:auto;border:1px solid var(--border-hi);animation:modalIn .25s ease both}
+  @keyframes modalIn{from{transform:scale(.97);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal-overlay{align-items:center}
+}
+@media(min-width:1024px){
+  :root{--sh:80px}
+  .stats{flex-wrap:nowrap}
+  .sc{flex:1;min-width:0;padding:16px 26px}
+  .sv{font-size:44px}
+  .app{grid-template-columns:1fr 380px}
+  .icard{padding:14px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ TOAST CONTAINER ══ -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- ══ HEADER ══ -->
+<header class="hdr">
+  <div class="logo">INSPECTR <span class="logo-sub">FIELD OPS</span></div>
+  <div class="hdr-r">
+    <div class="offline-pill" id="offline-pill">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+      OFFLINE
+    </div>
+    <div class="live-badge" id="live-badge"><div class="ldot"></div>LIVE</div>
+    <div class="hdr-clock" id="clock">--:--:--</div>
+    <button class="btn-new" onclick="openNewInsp()">
+      <svg width="11" height="11" viewBox="0 0 11 11"><line x1="5.5" y1="1" x2="5.5" y2="10" stroke="currentColor" stroke-width="1.8"/><line x1="1" y1="5.5" x2="10" y2="5.5" stroke="currentColor" stroke-width="1.8"/></svg>
+      NEW
+    </button>
+  </div>
+</header>
+
+<!-- ══ STATS ══ -->
+<div class="stats">
+  <div class="sc pass"><div class="sl">Passed</div><div class="sv" id="cnt-p">247</div><div class="sd up">↑ 12 today</div></div>
+  <div class="sc fail"><div class="sl">Failures</div><div class="sv">38</div><div class="sd dn">↑ 4 today</div></div>
+  <div class="sc pend"><div class="sl">Pending</div><div class="sv">14</div><div class="sd">Active now</div></div>
+  <div class="sc rate"><div class="sl">Rate</div><div class="sv">86%</div><div class="sd up">↑ 2.1% wk</div></div>
+</div>
+
+<!-- ══ APP ══ -->
+<div class="app">
+
+  <!-- LEFT: INSPECTIONS -->
+  <div id="panel-list" class="panel active">
+    <div class="sec-hdr"><div class="sec-t">Inspections</div><div class="sec-c">299 RECORDS</div></div>
+    <div class="fbar">
+      <button class="fpill active" onclick="fpick(this,'all')">All</button>
+      <button class="fpill" onclick="fpick(this,'pass')">Pass</button>
+      <button class="fpill" onclick="fpick(this,'fail')">Fail</button>
+      <button class="fpill" onclick="fpick(this,'pending')">Pending</button>
+    </div>
+    <div class="list-scroll" id="ilist"></div>
+  </div>
+
+  <!-- MOBILE: Checklist tab -->
+  <div id="panel-check" class="panel">
+    <div class="cl-col">
+      <div class="cl-hdr">
+        <div class="cl-site">Riverside Pump Station #4</div>
+        <div class="cl-meta"><span class="badge bn">IN PROGRESS</span> INS-0891 · STRUCTURAL</div>
+        <div class="cl-prog"><div class="ptr"><div class="pf" id="pf1" style="width:61%"></div></div><div class="pp" id="pp1">61%</div><div class="pfr" id="pfr1">8/13</div></div>
+      </div>
+      <div class="cl-scroll"><div id="cl1"></div><div class="sub-bar"><button class="btn-ghost" onclick="toast('Inspection flagged for review','t-warn','⚑')">FLAG</button><button class="btn-ghost" onclick="toast('Draft saved','t-info','✓')">SAVE</button><button class="btn-lime" style="flex:2" onclick="submitReport()">SUBMIT REPORT</button></div></div>
+    </div>
+  </div>
+
+  <!-- MOBILE: Feed tab -->
+  <div id="panel-feed" class="panel">
+    <div class="sec-hdr"><div class="sec-t">Activity</div><div class="sec-c" id="fcnt1"></div></div>
+    <div id="fl1"></div>
+  </div>
+
+  <!-- DESKTOP RIGHT COLUMN -->
+  <div class="dright" style="display:none" id="dright">
+    <div class="cl-col">
+      <div class="cl-hdr">
+        <div class="cl-site">Riverside Pump Station #4</div>
+        <div class="cl-meta"><span class="badge bn">IN PROGRESS</span> INS-0891 · STRUCTURAL</div>
+        <div class="cl-prog"><div class="ptr"><div class="pf" id="pf2" style="width:61%"></div></div><div class="pp" id="pp2">61%</div><div class="pfr" id="pfr2">8/13</div></div>
+      </div>
+      <div class="cl-scroll"><div id="cl2"></div><div class="sub-bar"><button class="btn-ghost" onclick="toast('Inspection flagged for review','t-warn','⚑')">FLAG</button><button class="btn-ghost" onclick="toast('Draft saved','t-info','✓')">SAVE</button><button class="btn-lime" style="flex:2" onclick="submitReport()">SUBMIT REPORT</button></div></div>
+    </div>
+    <div class="feed-col">
+      <div class="sec-hdr" style="position:sticky;top:0;z-index:10"><div class="sec-t">Activity</div><div class="sec-c" id="fcnt2"></div></div>
+      <div id="fl2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BOTTOM NAV ══ -->
+<nav class="bnav">
+  <button class="nb active" onclick="stab('list',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    List
+  </button>
+  <button class="nb" onclick="stab('check',this)">
+    <div class="nbadge" id="fail-badge">1</div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+    Active
+  </button>
+  <button class="nb" onclick="stab('feed',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+    Feed
+  </button>
+  <button class="nb" onclick="openReport()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    Report
+  </button>
+</nav>
+
+<!-- ══ FAILURE DETAIL MODAL ══ -->
+<div class="modal-overlay" id="fail-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-hdr">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--fail);letter-spacing:2px;margin-bottom:3px">⚠ FAILURE FLAGGED</div>
+        <div class="modal-title" id="fail-modal-title">Roof Membrane Integrity</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('fail-modal')">
+        <svg width="12" height="12" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" stroke-width="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Severity -->
+      <div class="field-group">
+        <div class="field-label">Severity Level</div>
+        <div class="fail-severity-row">
+          <button class="sev-btn" onclick="setSev(this,'low')">Low</button>
+          <button class="sev-btn" onclick="setSev(this,'med')">Medium</button>
+          <button class="sev-btn active-high" onclick="setSev(this,'high')">High</button>
+        </div>
+      </div>
+      <!-- Description -->
+      <div class="field-group">
+        <div class="field-label">Failure Description</div>
+        <textarea class="field-input" rows="3" placeholder="Describe the defect in detail...">Delamination detected on NE quadrant of roof membrane, approximately 12m². Bubble formation visible, moisture ingress likely.</textarea>
+      </div>
+      <!-- Photo evidence -->
+      <div class="field-group">
+        <div class="field-label">Photo Evidence</div>
+        <div class="photo-grid" id="photo-grid">
+          <div class="photo-thumb add-btn" onclick="openCamera()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            ADD PHOTO
+          </div>
+        </div>
+        <input type="file" id="photo-file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoFile(event)">
+      </div>
+      <!-- Remediation -->
+      <div class="field-group">
+        <div class="field-label">Assign Remediation</div>
+        <div class="assignee-row" id="assignee-row">
+          <button class="assignee-pill" onclick="setAssignee(this)"><div class="av">MO</div>M. Okafor</button>
+          <button class="assignee-pill active" onclick="setAssignee(this)"><div class="av">SR</div>S. Ramos</button>
+          <button class="assignee-pill" onclick="setAssignee(this)"><div class="av">TK</div>T. Kimura</button>
+          <button class="assignee-pill" onclick="setAssignee(this)"><div class="av">AL</div>A. Larsson</button>
+        </div>
+      </div>
+      <!-- Due date -->
+      <div class="field-group">
+        <div class="field-label">Remediation Due</div>
+        <input type="date" class="field-input" value="2024-12-20">
+      </div>
+      <!-- Ref standard -->
+      <div class="field-group">
+        <div class="field-label">Reference Standard</div>
+        <input class="field-input" type="text" value="AS/NZS 4200.1 — Roof membrane systems" placeholder="Code / standard reference...">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="closeModal('fail-modal')">Cancel</button>
+      <button class="btn-danger" onclick="closeModal('fail-modal');toast('Failure logged','t-fail','⚠')">Log Failure</button>
+      <button class="btn-lime" onclick="closeModal('fail-modal');toast('Failure saved & assigned','t-pass','✓')" style="margin-left:auto">Save & Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NEW INSPECTION MODAL ══ -->
+<div class="modal-overlay" id="new-modal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-hdr">
+      <div class="modal-title">New Inspection</div>
+      <button class="modal-close" onclick="closeModal('new-modal')">
+        <svg width="12" height="12" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" stroke-width="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Template -->
+      <div class="field-group">
+        <div class="field-label">Inspection Template</div>
+        <div class="template-grid">
+          <button class="tmpl-card active" onclick="pickTmpl(this)"><div class="tmpl-icon">🏗</div><div class="tmpl-name">Structural</div><div class="tmpl-count">24 items</div></button>
+          <button class="tmpl-card" onclick="pickTmpl(this)"><div class="tmpl-icon">⚡</div><div class="tmpl-name">Electrical</div><div class="tmpl-count">18 items</div></button>
+          <button class="tmpl-card" onclick="pickTmpl(this)"><div class="tmpl-icon">🔧</div><div class="tmpl-name">Mechanical</div><div class="tmpl-count">21 items</div></button>
+          <button class="tmpl-card" onclick="pickTmpl(this)"><div class="tmpl-icon">🌿</div><div class="tmpl-name">Environmental</div><div class="tmpl-count">15 items</div></button>
+          <button class="tmpl-card" onclick="pickTmpl(this)"><div class="tmpl-icon">🛣</div><div class="tmpl-name">Pavement</div><div class="tmpl-count">12 items</div></button>
+          <button class="tmpl-card" onclick="pickTmpl(this)"><div class="tmpl-icon">🏭</div><div class="tmpl-name">Facility</div><div class="tmpl-count">30 items</div></button>
+        </div>
+      </div>
+      <!-- Site search -->
+      <div class="field-group">
+        <div class="field-label">Site</div>
+        <div class="site-search">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.5"/></svg>
+          <input type="text" id="site-input" placeholder="Search site name or ID..." oninput="filterSites(this.value)" onfocus="showSites()">
+        </div>
+        <div class="site-results" id="site-results" style="display:none"></div>
+      </div>
+      <!-- Inspector -->
+      <div class="field-group">
+        <div class="field-label">Inspector</div>
+        <div class="assignee-row">
+          <button class="assignee-pill active" onclick="setAssignee(this)"><div class="av">MO</div>M. Okafor</button>
+          <button class="assignee-pill" onclick="setAssignee(this)"><div class="av">SR</div>S. Ramos</button>
+          <button class="assignee-pill" onclick="setAssignee(this)"><div class="av">TK</div>T. Kimura</button>
+          <button class="assignee-pill" onclick="setAssignee(this)"><div class="av">AL</div>A. Larsson</button>
+        </div>
+      </div>
+      <!-- Scheduled date/time -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field-group">
+          <div class="field-label">Date</div>
+          <input type="date" class="field-input" id="insp-date">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Time</div>
+          <input type="time" class="field-input" id="insp-time">
+        </div>
+      </div>
+      <!-- Notes -->
+      <div class="field-group">
+        <div class="field-label">Pre-Inspection Notes</div>
+        <textarea class="field-input" rows="2" placeholder="Any relevant context or access requirements..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="closeModal('new-modal')">Cancel</button>
+      <button class="btn-lime" onclick="createInsp()" style="margin-left:auto">Create Inspection</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REPORT MODAL ══ -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal" style="max-width:600px;max-height:94vh">
+    <div class="modal-hdr">
+      <div class="modal-title">Inspection Report</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-ghost" style="padding:6px 12px;font-size:9px" onclick="toast('Report exported as PDF','t-info','↓')">EXPORT PDF</button>
+        <button class="modal-close" onclick="closeModal('report-modal')">
+          <svg width="12" height="12" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" stroke-width="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <!-- Hero -->
+      <div class="report-hero">
+        <div class="report-id">INS-2024-0891 · STRUCTURAL</div>
+        <div class="report-site">Riverside Pump Station #4</div>
+        <div class="report-meta">
+          <span>Inspector: M. Okafor</span>
+          <span>Date: 06 Dec 2024</span>
+          <span>Duration: 2h 14m</span>
+        </div>
+        <div class="report-score-big">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-ghost);margin-bottom:4px">OVERALL SCORE</div>
+            <div class="rsb-num" style="color:var(--warn)">61</div>
+          </div>
+          <div class="rsb-bar-wrap">
+            <div class="rsb-label">COMPLETION · 8 OF 13 ITEMS</div>
+            <div class="rsb-track"><div class="rsb-fill" style="width:61%;background:var(--warn)"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px">
+              <span class="badge bp">7 PASSED</span>
+              <span class="badge bf">1 FAILED</span>
+              <span class="badge bn">5 PENDING</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Sections -->
+      <div class="report-sections" id="report-sections"></div>
+      <!-- Signature -->
+      <div class="sig-block">
+        <div class="sig-label">INSPECTOR SIGN-OFF</div>
+        <div class="sig-canvas" id="sig-area">
+          <canvas id="sigcanvas"></canvas>
+          <span id="sig-placeholder" style="pointer-events:none">Sign here →</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-ghost)">M. OKAFOR · 06 DEC 2024 14:38</span>
+          <button onclick="clearSig()" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-ghost);background:transparent;border:none;cursor:pointer;letter-spacing:1px">CLEAR</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="closeModal('report-modal')">Close</button>
+      <button class="btn-lime" onclick="closeModal('report-modal');toast('Report submitted for approval','t-pass','✓')" style="margin-left:auto">Submit for Approval</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CAMERA OVERLAY ══ -->
+<div class="camera-overlay" id="cam-overlay">
+  <div class="cam-viewfinder">
+    <video id="camvid" autoplay playsinline muted></video>
+    <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+    <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+    <div class="cam-label">EVIDENCE CAPTURE</div>
+    <div class="cam-flash" id="cam-flash"></div>
+  </div>
+  <div class="cam-bar">
+    <button class="cam-cancel" onclick="closeCamera()">CANCEL</button>
+    <button class="cam-shutter" onclick="capturePhoto()" id="cam-shutter"></button>
+    <button class="cam-cancel" onclick="document.getElementById('photo-file').click()">UPLOAD</button>
+  </div>
+</div>
+
+<script>
+// ══════════════ CLOCK ══════════════
+const clkEl=document.getElementById('clock');
+function tick(){clkEl.textContent=new Date().toLocaleTimeString('en-US',{hour12:false})}
+tick();setInterval(tick,1000);
+
+// ══════════════ ONLINE/OFFLINE ══════════════
+function updateOnline(){
+  const offline=!navigator.onLine;
+  document.getElementById('offline-pill').classList.toggle('show',offline);
+  document.getElementById('live-badge').style.opacity=offline?'0.3':'1';
+  if(offline)toast('No network connection','t-warn','⚡');
+}
+window.addEventListener('online',()=>{updateOnline();toast('Back online','t-pass','✓')});
+window.addEventListener('offline',updateOnline);
+updateOnline();
+
+// ══════════════ TOAST ══════════════
+function toast(msg,type='t-info',icon='•'){
+  const c=document.getElementById('toasts');
+  const d=document.createElement('div');
+  d.className='toast '+type;
+  d.innerHTML=`<span class="tdot"></span>${icon} ${msg}`;
+  c.appendChild(d);
+  if(navigator.vibrate){if(type==='t-fail')navigator.vibrate([60,40,60]);else if(type==='t-pass')navigator.vibrate(40);else navigator.vibrate(20)}
+  setTimeout(()=>{d.classList.add('out');setTimeout(()=>d.remove(),300)},2800);
+}
+
+// ══════════════ DATA ══════════════
+const inspData=[
+  {id:'INS-0891',site:'Riverside Pump Station #4',type:'STRUCTURAL',score:61,status:'pending',ini:'MO',name:'M. Okafor',time:'In Progress'},
+  {id:'INS-0890',site:'Harbor Bridge Section 7',type:'CIVIL / BRIDGE',score:94,status:'pass',ini:'SR',name:'S. Ramos',time:'1h 12m ago'},
+  {id:'INS-0889',site:'Northgate Substation',type:'ELECTRICAL',score:41,status:'fail',ini:'TK',name:'T. Kimura',time:'2h 34m ago'},
+  {id:'INS-0888',site:'Eastfield Water Treatment',type:'PROCESS',score:88,status:'pass',ini:'AL',name:'A. Larsson',time:'3h 08m ago'},
+  {id:'INS-0887',site:'Depot B — Bay 12',type:'FACILITY',score:76,status:'pass',ini:'CB',name:'C. Balogun',time:'4h 51m ago'},
+  {id:'INS-0886',site:'Terminal 3 Apron',type:'PAVEMENT',score:55,status:'fail',ini:'JW',name:'J. Walsh',time:'5h 30m ago'},
+  {id:'INS-0885',site:'Grid Substation West',type:'ELECTRICAL',score:91,status:'pass',ini:'SR',name:'S. Ramos',time:'Yesterday'},
+  {id:'INS-0884',site:'Central Waste Facility',type:'ENVIRONMENTAL',score:83,status:'pass',ini:'TK',name:'T. Kimura',time:'Yesterday'},
+];
+const allSites=['Riverside Pump Station #4','Harbor Bridge Section 7','Northgate Substation','Eastfield Water Treatment','Depot B — Bay 12','Terminal 3 Apron','Grid Substation West','Central Waste Facility','Bayview Treatment Plant','South Dock Warehouse B','Airport Taxiway Delta','Highway Interchange 12'];
+function scolor(s,st){if(st==='pending')return'var(--warn)';if(s>=80)return'var(--lime)';if(s>=60)return'var(--warn)';return'var(--fail)'}
+
+// ══════════════ INSPECTIONS LIST ══════════════
+function buildList(parent,data){
+  parent.innerHTML='';
+  data.forEach((r,i)=>{
+    const c=scolor(r.score,r.status);
+    const bc=r.status==='pass'?'bp':r.status==='fail'?'bf':'bn';
+    const d=document.createElement('div');
+    d.className='icard'+(i===0?' sel':'');
+    d.style.animationDelay=(i*.04)+'s';
+    d.innerHTML=`
+      <div class="ic-top">
+        <div><div class="ic-id">${r.id}</div><div class="ic-site">${r.site}</div><div class="ic-type">${r.type}</div></div>
+        <div class="ic-meta"><div class="ic-who"><div class="av">${r.ini}</div>${r.name}</div><div class="ic-time">${r.time}</div></div>
+      </div>
+      <div class="ic-bot">
+        <div class="sw"><div class="st"><div class="sf" style="width:${r.score}%;background:${c}"></div></div><div class="sn" style="color:${c}">${r.score}</div></div>
+        <span class="badge ${bc}">${r.status.toUpperCase()}</span>
+      </div>
+      <div class="swipe-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>FLAG</div>`;
+    // tap select
+    d.addEventListener('click',()=>{parent.querySelectorAll('.icard').forEach(x=>x.classList.remove('sel','swiped'));d.classList.add('sel')});
+    // swipe to reveal
+    addSwipe(d);
+    parent.appendChild(d);
+  });
+}
+
+let currentFilter='all';
+buildList(document.getElementById('ilist'),inspData);
+
+function fpick(el,f){
+  document.querySelectorAll('.fpill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter=f;
+  const filtered=f==='all'?inspData:inspData.filter(r=>r.status===f);
+  buildList(document.getElementById('ilist'),filtered);
+}
+
+// ══════════════ SWIPE GESTURE ══════════════
+function addSwipe(el){
+  let sx=0,sy=0,moved=false;
+  el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;moved=false},{passive:true});
+  el.addEventListener('touchmove',e=>{
+    const dx=sx-e.touches[0].clientX;
+    const dy=Math.abs(sy-e.touches[0].clientY);
+    if(dy>dx)return;
+    if(dx>30){moved=true;el.classList.add('swiped')}
+    else if(dx<-10){el.classList.remove('swiped')}
+  },{passive:true});
+  el.addEventListener('touchend',()=>{
+    if(moved){if(navigator.vibrate)navigator.vibrate(30)}
+  });
+}
+
+// ══════════════ CHECKLIST DATA ══════════════
+const clData=[
+  {grp:'Structural Integrity',items:[
+    {t:'Foundation crack assessment',s:'done'},
+    {t:'Load-bearing wall inspection',s:'done'},
+    {t:'Roof membrane integrity',s:'failed',n:'Delamination detected — NE quadrant, ~12m²'},
+    {t:'Expansion joints checked',s:'done'},
+  ]},
+  {grp:'Mechanical / Electrical',items:[
+    {t:'Main pump unit operation',s:'done'},
+    {t:'Emergency shutoff valve test',s:'done'},
+    {t:'Control panel voltage reading',s:''},
+    {t:'SCADA comms link verified',s:''},
+  ]},
+  {grp:'Safety / Compliance',items:[
+    {t:'Hazmat signage current',s:''},
+    {t:'Egress routes unobstructed',s:''},
+    {t:'Fire extinguisher tags',s:''},
+    {t:'PPE station stocked',s:''},
+    {t:'Spill kit inspection',s:''},
+  ]},
+];
+
+function buildCL(parent,pf,pp,pfr){
+  clData.forEach(g=>{
+    const gl=document.createElement('div');gl.className='grp';gl.textContent=g.grp;parent.appendChild(gl);
+    g.items.forEach(item=>{
+      const row=document.createElement('div');
+      row.className='crow'+(item.s?' '+item.s:'');
+      row.innerHTML=`
+        <div class="cbox">
+          ${item.s==='done'?`<svg viewBox="0 0 11 11"><polyline points="1.5,5.5 4.5,8.5 9.5,2" stroke="#0A0A09" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`:''}
+          ${item.s==='failed'?`<svg viewBox="0 0 11 11"><line x1="2" y1="2" x2="9" y2="9" stroke="var(--fail)" stroke-width="1.8"/><line x1="9" y1="2" x2="2" y2="9" stroke="var(--fail)" stroke-width="1.8"/></svg>`:''}
+        </div>
+        <div class="crow-body">
+          <div class="crow-text">${item.t}</div>
+          ${item.n?`<div class="fail-note" onclick="openFailModal('${item.t}')">⚠ ${item.n} — tap to edit</div>`:''}
+        </div>
+        ${!item.s?`<div class="crow-acts"><button class="act act-p" title="Pass"><svg width="12" height="12" viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9 10.5,2.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button><button class="act act-f" title="Fail"><svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8"/></svg></button></div>`:''}
+      `;
+      if(!item.s){
+        row.querySelector('.act-p').addEventListener('click',e=>{
+          e.stopPropagation();
+          row.className='crow done';
+          row.querySelector('.cbox').innerHTML=`<svg viewBox="0 0 11 11"><polyline points="1.5,5.5 4.5,8.5 9.5,2" stroke="#0A0A09" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`;
+          row.querySelector('.crow-acts')?.remove();
+          if(navigator.vibrate)navigator.vibrate(40);
+          toast('Item passed','t-pass','✓');
+          updProg(parent,pf,pp,pfr);
+        });
+        row.querySelector('.act-f').addEventListener('click',e=>{
+          e.stopPropagation();
+          row.className='crow failed';
+          row.querySelector('.cbox').innerHTML=`<svg viewBox="0 0 11 11"><line x1="2" y1="2" x2="9" y2="9" stroke="var(--fail)" stroke-width="1.8"/><line x1="9" y1="2" x2="2" y2="9" stroke="var(--fail)" stroke-width="1.8"/></svg>`;
+          row.querySelector('.crow-acts')?.remove();
+          const fn=document.createElement('div');
+          fn.className='fail-note';fn.textContent='⚠ Tap to add detail';
+          fn.onclick=()=>openFailModal(item.t);
+          row.querySelector('.crow-body').appendChild(fn);
+          if(navigator.vibrate)navigator.vibrate([60,30,60]);
+          toast('Failure flagged — add detail','t-fail','⚠');
+          updProg(parent,pf,pp,pfr);
+          // bump badge
+          const b=document.getElementById('fail-badge');
+          b.textContent=parseInt(b.textContent||0)+1;
+        });
+      }
+      parent.appendChild(row);
+    });
+  });
+}
+function updProg(parent,pf,pp,pfr){
+  const all=parent.querySelectorAll('.crow').length;
+  const done=parent.querySelectorAll('.crow.done,.crow.failed').length;
+  const pct=Math.round(done/all*100);
+  document.getElementById(pf).style.width=pct+'%';
+  document.getElementById(pp).textContent=pct+'%';
+  document.getElementById(pfr).textContent=done+'/'+all;
+}
+buildCL(document.getElementById('cl1'),'pf1','pp1','pfr1');
+
+// ══════════════ FEED ══════════════
+const feedData=[
+  {t:'14:22:11',c:'var(--fail)',txt:'<strong>INS-0891</strong> — Failure flagged: <span class="tag-f">Roof membrane delamination</span>'},
+  {t:'14:19:04',c:'var(--lime)',txt:'<strong>INS-0890</strong> — Inspection <span class="tag-p">PASSED</span> · Score 94/100'},
+  {t:'13:58:32',c:'var(--fail)',txt:'<strong>INS-0889</strong> — Inspection <span class="tag-f">FAILED</span> · 3 critical items'},
+  {t:'13:44:50',c:'var(--warn)',txt:'<strong>INS-0891</strong> — Item completed: Emergency shutoff valve'},
+  {t:'13:31:18',c:'var(--lime)',txt:'<strong>INS-0888</strong> — Inspection <span class="tag-p">PASSED</span> · Score 88/100'},
+  {t:'12:55:00',c:'var(--warn)',txt:'<strong>INS-0891</strong> — Started by <strong>M. Okafor</strong>'},
+  {t:'12:47:33',c:'var(--text-ghost)',txt:'<strong>INS-0887</strong> — Report submitted for review'},
+  {t:'11:20:09',c:'var(--fail)',txt:'<strong>INS-0886</strong> — Inspection <span class="tag-f">FAILED</span> · Pavement cracking HIGH'},
+];
+function buildFeed(parent,cntId){
+  feedData.forEach((e,i)=>{
+    const d=document.createElement('div');d.className='feed-item';d.style.animationDelay=(i*.05)+'s';
+    d.innerHTML=`<div class="fdot" style="background:${e.c}"></div><div class="fb"><div class="ft">${e.txt}</div><div class="ftime">${e.t}</div></div>`;
+    parent.appendChild(d);
+  });
+  document.getElementById(cntId).textContent=feedData.length+' EVENTS';
+}
+buildFeed(document.getElementById('fl1'),'fcnt1');
+
+// ══════════════ REPORT SECTIONS ══════════════
+function buildReportSections(){
+  const sec=document.getElementById('report-sections');
+  const groups=[
+    {name:'Structural Integrity',score:75,items:[
+      {t:'Foundation crack assessment',s:'pass'},
+      {t:'Load-bearing wall inspection',s:'pass'},
+      {t:'Roof membrane integrity',s:'fail',n:'Delamination detected — NE quadrant, ~12m²'},
+      {t:'Expansion joints checked',s:'pass'},
+    ]},
+    {name:'Mechanical / Electrical',score:100,items:[
+      {t:'Main pump unit operation',s:'pass'},
+      {t:'Emergency shutoff valve test',s:'pass'},
+    ]},
+    {name:'Safety / Compliance',score:0,items:[
+      {t:'Control panel voltage reading',s:'pending'},
+      {t:'Hazmat signage current',s:'pending'},
+      {t:'Egress routes unobstructed',s:'pending'},
+    ]},
+  ];
+  groups.forEach(g=>{
+    const d=document.createElement('div');d.className='rs-group';
+    const sc=g.score===0?'var(--text-ghost)':g.score>=80?'var(--lime)':'var(--warn)';
+    d.innerHTML=`<div class="rs-group-hdr"><div class="rs-group-title">${g.name}</div><div class="rs-group-score" style="color:${sc}">${g.score===0?'PENDING':g.score+'%'}</div></div>`;
+    g.items.forEach(item=>{
+      const r=document.createElement('div');r.className='rs-item';
+      const ic=item.s==='pass'?'var(--lime)':item.s==='fail'?'var(--fail)':'var(--border-hi)';
+      const bc=item.s==='pass'?'bp':item.s==='fail'?'bf':'';
+      r.innerHTML=`<div class="rs-dot" style="background:${ic}"></div><div class="rs-text">${item.t}</div>${bc?`<span class="badge ${bc}">${item.s.toUpperCase()}</span>`:'<span style="font-family:\'IBM Plex Mono\',monospace;font-size:8px;color:var(--text-ghost)">–</span>'}`;
+      d.appendChild(r);
+      if(item.n){
+        const fd=document.createElement('div');fd.className='rs-fail-detail';
+        fd.innerHTML=`<div class="rs-fail-note">⚠ ${item.n}</div><div class="rs-fail-photos"><div class="rs-photo" onclick="openCamera()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="rs-photo" style="background:var(--surface2);border-style:dashed;color:var(--text-ghost);font-size:9px;cursor:pointer" onclick="toast('Opening camera…','t-info','📷')">+ ADD</div></div>`;
+        d.appendChild(fd);
+      }
+    });
+    sec.appendChild(d);
+  });
+}
+
+// ══════════════ SIGNATURE ══════════════
+let sigCtx,sigDrawing=false;
+function initSig(){
+  const canvas=document.getElementById('sigcanvas');
+  if(!canvas)return;
+  const rect=canvas.parentElement.getBoundingClientRect();
+  canvas.width=rect.width;canvas.height=rect.height;
+  sigCtx=canvas.getContext('2d');
+  sigCtx.strokeStyle='var(--lime)';sigCtx.lineWidth=2;sigCtx.lineCap='round';sigCtx.lineJoin='round';
+  function pos(e){const r=canvas.getBoundingClientRect();const src=e.touches?e.touches[0]:e;return[src.clientX-r.left,src.clientY-r.top]}
+  canvas.addEventListener('mousedown',e=>{sigDrawing=true;const[x,y]=pos(e);sigCtx.beginPath();sigCtx.moveTo(x,y);document.getElementById('sig-placeholder').style.display='none'});
+  canvas.addEventListener('mousemove',e=>{if(!sigDrawing)return;const[x,y]=pos(e);sigCtx.lineTo(x,y);sigCtx.stroke()});
+  canvas.addEventListener('mouseup',()=>sigDrawing=false);
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();sigDrawing=true;const[x,y]=pos(e);sigCtx.beginPath();sigCtx.moveTo(x,y);document.getElementById('sig-placeholder').style.display='none'},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!sigDrawing)return;const[x,y]=pos(e);sigCtx.lineTo(x,y);sigCtx.stroke()},{passive:false});
+  canvas.addEventListener('touchend',()=>sigDrawing=false);
+}
+function clearSig(){if(sigCtx){sigCtx.clearRect(0,0,99999,99999);document.getElementById('sig-placeholder').style.display=''}}
+
+// ══════════════ MODALS ══════════════
+function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden'}
+function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow=''}
+
+function openFailModal(title){
+  document.getElementById('fail-modal-title').textContent=title||'Inspection Failure';
+  openModal('fail-modal');
+}
+function openNewInsp(){
+  // Set default date/time
+  const now=new Date();
+  document.getElementById('insp-date').value=now.toISOString().split('T')[0];
+  document.getElementById('insp-time').value=now.toTimeString().slice(0,5);
+  openModal('new-modal');
+}
+function openReport(){
+  openModal('report-modal');
+  buildReportSections();
+  setTimeout(initSig,100);
+}
+
+// ══════════════ SITE SEARCH ══════════════
+function filterSites(v){
+  const res=document.getElementById('site-results');
+  if(!v){res.style.display='none';return}
+  const matches=allSites.filter(s=>s.toLowerCase().includes(v.toLowerCase()));
+  res.innerHTML=matches.map(s=>`<div class="site-opt" onclick="pickSite('${s}')">${s}<div class="site-opt-sub">Site ID: ST-${Math.floor(Math.random()*9000+1000)}</div></div>`).join('');
+  res.style.display=matches.length?'block':'none';
+}
+function showSites(){filterSites(document.getElementById('site-input').value)}
+function pickSite(s){document.getElementById('site-input').value=s;document.getElementById('site-results').style.display='none'}
+
+// Close site dropdown on outside click
+document.addEventListener('click',e=>{if(!e.target.closest('.site-search')&&!e.target.closest('.site-results'))document.getElementById('site-results').style.display='none'});
+
+// ══════════════ FORM HELPERS ══════════════
+function setSev(btn,level){document.querySelectorAll('.sev-btn').forEach(b=>{b.classList.remove('active-low','active-med','active-high')});btn.classList.add('active-'+level)}
+function setAssignee(btn){btn.closest('.assignee-row').querySelectorAll('.assignee-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+function pickTmpl(btn){btn.closest('.template-grid').querySelectorAll('.tmpl-card').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
+
+function createInsp(){
+  const site=document.getElementById('site-input').value||'—';
+  closeModal('new-modal');
+  toast(`Inspection created: ${site.substring(0,28)}…`,'t-pass','✓');
+}
+function submitReport(){toast('Report submitted for supervisor approval','t-pass','✓')}
+
+// ══════════════ CAMERA ══════════════
+let camStream=null;
+async function openCamera(){
+  const overlay=document.getElementById('cam-overlay');
+  overlay.classList.add('open');
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    document.getElementById('camvid').srcObject=camStream;
+  }catch(e){
+    // Fallback: if no camera, just show file input
+    overlay.classList.remove('open');
+    document.getElementById('photo-file').click();
+  }
+}
+function closeCamera(){
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
+  document.getElementById('cam-overlay').classList.remove('open');
+  document.getElementById('camvid').srcObject=null;
+}
+function capturePhoto(){
+  const video=document.getElementById('camvid');
+  const flash=document.getElementById('cam-flash');
+  flash.classList.remove('snap');
+  void flash.offsetWidth;
+  flash.classList.add('snap');
+  if(navigator.vibrate)navigator.vibrate(60);
+  const canvas=document.createElement('canvas');
+  canvas.width=video.videoWidth||400;canvas.height=video.videoHeight||300;
+  canvas.getContext('2d').drawImage(video,0,0);
+  const dataUrl=canvas.toDataURL('image/jpeg',.85);
+  addPhotoThumb(dataUrl);
+  closeCamera();
+  toast('Photo captured','t-pass','📷');
+}
+function handlePhotoFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>addPhotoThumb(ev.target.result);
+  reader.readAsDataURL(file);
+  e.target.value='';
+  toast('Photo added','t-pass','📷');
+}
+function addPhotoThumb(src){
+  const grid=document.getElementById('photo-grid');
+  const addBtn=grid.querySelector('.add-btn');
+  const thumb=document.createElement('div');
+  thumb.className='photo-thumb';
+  thumb.innerHTML=`<img src="${src}"><button class="del-photo" onclick="this.parentElement.remove()">×</button>`;
+  grid.insertBefore(thumb,addBtn);
+}
+
+// ══════════════ MOBILE TABS ══════════════
+function stab(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ══════════════ RESPONSIVE ══════════════
+function applyLayout(){
+  const tablet=window.innerWidth>=768;
+  const dr=document.getElementById('dright');
+  const pc=document.getElementById('panel-check');
+  const pf=document.getElementById('panel-feed');
+  if(tablet){
+    dr.style.display='flex';
+    pc.style.display='none';pf.style.display='none';
+    if(!dr.dataset.built){
+      dr.dataset.built='1';
+      buildCL(document.getElementById('cl2'),'pf2','pp2','pfr2');
+      buildFeed(document.getElementById('fl2'),'fcnt2');
+    }
+  } else {
+    dr.style.display='none';
+    const act=document.querySelector('.nb.active');
+    if(act){
+      const m=act.getAttribute('onclick').match(/'(\w+)'/);
+      if(m){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));const tp=document.getElementById('panel-'+m[1]);if(tp)tp.classList.add('active')}
+    }
+  }
+}
+applyLayout();
+window.addEventListener('resize',applyLayout);
+
+// ══════════════ LIVE COUNTER ══════════════
+let pc=247;
+setInterval(()=>{
+  if(Math.random()<.3){pc++;const el=document.getElementById('cnt-p');el.textContent=pc;el.style.textShadow='0 0 20px rgba(200,255,0,.8)';setTimeout(()=>el.style.textShadow='',700)}
+},9000);
+
+// ══════════════ INIT DATE ══════════════
+const _now=new Date();
+document.getElementById('insp-date')&&(document.getElementById('insp-date').value=_now.toISOString().split('T')[0]);
+</script>
+</body>
+</html>
