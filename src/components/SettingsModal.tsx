@@ -41,12 +41,12 @@ export function SettingsModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    const [c, s, i, t, d] = await Promise.all([api.getCompanies(), api.getSites(), api.getInspectors(), api.getTemplates(), api.getDocuments()]);
+    const [c, s, i, t] = await Promise.all([api.getCompanies(), api.getSites(), api.getInspectors(), api.getTemplates()]);
     setCompanies(c);
     setSites(s);
     setInspectors(i);
     setTemplates(t);
-    setDocuments(d);
+    try { setDocuments(await api.getDocuments()); } catch { /* documents endpoint may not be available yet */ }
   }, []);
 
   useEffect(() => {
@@ -174,7 +174,7 @@ export function SettingsModal({ open, onClose }: Props) {
   };
 
   // Template group/item helpers
-  const addGroup = () => setTmplGroups([...tmplGroups, { name: '', items: [''] }]);
+  const addGroup = () => setTmplGroups([...tmplGroups, { name: '', items: [{ text: '', photos: [] }] }]);
   const removeGroup = (gi: number) => setTmplGroups(tmplGroups.filter((_, i) => i !== gi));
   const updateGroupName = (gi: number, name: string) => {
     const g = [...tmplGroups]; g[gi] = { ...g[gi], name }; setTmplGroups(g);
