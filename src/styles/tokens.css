@@ -1,54 +1,52 @@
 /* ══════════════════════════════════════
-   DESIGN TOKENS — DARK (default)
+   DESIGN TOKENS — LIGHT (default)
 ══════════════════════════════════════ */
-:root, [data-theme="dark"] {
-  --lime: #C8FF00;
-  --lime-dim: #9DC300;
-  --lime-glow: rgba(200, 255, 0, .10);
-  --bg: #0A0A09;
-  --surface: #111110;
-  --surface2: #181817;
-  --surface3: #1F1F1E;
-  --border: #272725;
-  --border-hi: #363634;
-  --text: #E8E8E2;
-  --text-dim: #8A8A82;
-  --text-ghost: #444442;
-  --pass: #C8FF00;
-  --fail: #FF3B30;
-  --warn: #FF9500;
-  --fail-bg: rgba(255, 59, 48, .12);
-  --pass-bg: rgba(200, 255, 0, .10);
-  --warn-bg: rgba(255, 149, 0, .12);
-  --scanline: rgba(0, 0, 0, .022);
+:root, [data-theme="light"] {
+  --lime: #1B7D2F;
+  --lime-dim: #2A8E3E;
+  --lime-glow: rgba(27, 125, 47, .08);
+  --bg: #F4F5F7;
+  --surface: #FFFFFF;
+  --surface2: #F0F1F3;
+  --surface3: #E4E5E9;
+  --border: #D1D3D9;
+  --border-hi: #B8BBC2;
+  --text: #1A1D23;
+  --text-dim: #5F6368;
+  --text-ghost: #9AA0A6;
+  --pass: #1B7D2F;
+  --fail: #D93025;
+  --warn: #E37400;
+  --fail-bg: rgba(217, 48, 37, .08);
+  --pass-bg: rgba(27, 125, 47, .08);
+  --warn-bg: rgba(227, 116, 0, .08);
   --sb: env(safe-area-inset-bottom, 0px);
   --st: env(safe-area-inset-top, 0px);
-  --hh: 52px;
-  --sh: 78px;
-  --nh: 60px;
+  --hh: 56px;
+  --sh: 82px;
+  --nh: 64px;
 }
 
 /* ══════════════════════════════════════
-   DESIGN TOKENS — LIGHT
+   DESIGN TOKENS — DARK
 ══════════════════════════════════════ */
-[data-theme="light"] {
-  --lime: #2D7A00;
-  --lime-dim: #3D8F10;
-  --lime-glow: rgba(45, 122, 0, .08);
-  --bg: #F5F5F0;
-  --surface: #FFFFFF;
-  --surface2: #F0F0EB;
-  --surface3: #E8E8E3;
-  --border: #D4D4CF;
-  --border-hi: #C0C0BB;
-  --text: #1A1A18;
-  --text-dim: #6B6B63;
-  --text-ghost: #A0A098;
-  --pass: #2D7A00;
-  --fail: #D32F2F;
-  --warn: #E67E00;
-  --fail-bg: rgba(211, 47, 47, .08);
-  --pass-bg: rgba(45, 122, 0, .08);
-  --warn-bg: rgba(230, 126, 0, .08);
-  --scanline: rgba(0, 0, 0, 0);
+[data-theme="dark"] {
+  --lime: #66BB6A;
+  --lime-dim: #81C784;
+  --lime-glow: rgba(102, 187, 106, .10);
+  --bg: #121316;
+  --surface: #1A1C20;
+  --surface2: #22252A;
+  --surface3: #2C2F35;
+  --border: #35383F;
+  --border-hi: #444850;
+  --text: #E8EAED;
+  --text-dim: #9AA0A6;
+  --text-ghost: #5F6368;
+  --pass: #66BB6A;
+  --fail: #F28B82;
+  --warn: #FDD663;
+  --fail-bg: rgba(242, 139, 130, .12);
+  --pass-bg: rgba(102, 187, 106, .10);
+  --warn-bg: rgba(253, 214, 99, .12);
 }

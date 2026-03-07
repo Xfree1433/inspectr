@@ -62,7 +62,7 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
       <div className="modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
         <div className="modal-hdr">
           <div>
-            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: 'var(--fail)', letterSpacing: 2, marginBottom: 3 }}>⚠ FAILURE FLAGGED</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--fail)', letterSpacing: 1, marginBottom: 3 }}>FAILURE FLAGGED</div>
             <div className="modal-title">{title}</div>
           </div>
           <button className="modal-close" onClick={onClose}>

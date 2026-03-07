@@ -37,7 +37,8 @@ export function ReportModal({ open, onClose }: Props) {
     canvas.width = rect.width;
     canvas.height = rect.height;
     const ctx = canvas.getContext('2d')!;
-    ctx.strokeStyle = '#C8FF00';
+    const style = getComputedStyle(document.documentElement);
+    ctx.strokeStyle = style.getPropertyValue('--lime').trim() || '#1B7D2F';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -109,7 +110,7 @@ export function ReportModal({ open, onClose }: Props) {
         <div className="modal-hdr">
           <div className="modal-title">Inspection Report</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button className="btn-ghost" style={{ padding: '6px 12px', fontSize: 9 }} onClick={() => toast('Report exported as PDF', 't-info', '↓')}>EXPORT PDF</button>
+            <button className="btn-ghost" style={{ padding: '8px 14px', fontSize: 12 }} onClick={() => toast('Report exported as PDF', 't-info', '↓')}>EXPORT PDF</button>
             <button className="modal-close" onClick={onClose}>
               <svg width="12" height="12" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.8"/></svg>
             </button>
@@ -125,7 +126,7 @@ export function ReportModal({ open, onClose }: Props) {
             </div>
             <div className="report-score-big">
               <div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 8, letterSpacing: 2, color: 'var(--text-ghost)', marginBottom: 4 }}>OVERALL SCORE</div>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: .5, color: 'var(--text-ghost)', marginBottom: 4 }}>OVERALL SCORE</div>
                 <div className="rsb-num" style={{ color: scoreColor }}>{report.score}</div>
               </div>
               <div className="rsb-bar-wrap">
@@ -157,12 +158,12 @@ export function ReportModal({ open, onClose }: Props) {
                       {item.status !== 'pending' ? (
                         <span className={`badge ${item.status === 'pass' ? 'bp' : 'bf'}`}>{item.status.toUpperCase()}</span>
                       ) : (
-                        <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 8, color: 'var(--text-ghost)' }}>–</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-ghost)' }}>–</span>
                       )}
                     </div>
                     {item.note && (
                       <div style={{ background: 'var(--fail-bg)', padding: '10px 20px', borderTop: '1px solid rgba(255,59,48,.2)' }}>
-                        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: 'var(--fail)', lineHeight: 1.4 }}>⚠ {item.note}</div>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 500, color: 'var(--fail)', lineHeight: 1.4 }}>⚠ {item.note}</div>
                       </div>
                     )}
                   </div>
@@ -178,10 +179,10 @@ export function ReportModal({ open, onClose }: Props) {
               {!sigStarted && <span style={{ pointerEvents: 'none' }}>Sign here →</span>}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: 'var(--text-ghost)' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-ghost)' }}>
                 {report.inspectorName?.toUpperCase()} · {new Date(report.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
-              <button onClick={clearSig} style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: 'var(--text-ghost)', background: 'transparent', border: 'none', cursor: 'pointer', letterSpacing: 1 }}>CLEAR</button>
+              <button onClick={clearSig} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-ghost)', background: 'transparent', border: 'none', cursor: 'pointer', letterSpacing: .5 }}>CLEAR</button>
             </div>
           </div>
         </div>
