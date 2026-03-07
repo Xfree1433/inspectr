@@ -820,6 +820,8 @@
 }
 
 /* ── Site Form ── */
+.site-address-row { display: flex; gap: 8px; align-items: center; }
+.site-lookup-btn { font-size: 12px; padding: 8px 14px; white-space: nowrap; min-height: 44px; }
 .site-coords-row { display: flex; gap: 8px; }
 .site-coords-row .fm-input { flex: 1; }
 .site-hint { font-size: 11px; color: var(--text-dim); margin-top: -4px; }

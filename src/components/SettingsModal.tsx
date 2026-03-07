@@ -140,6 +140,29 @@ export function SettingsModal({ open, onClose }: Props) {
     } catch { toast('Failed to delete', 't-fail', '!'); }
   };
 
+  // Geocode address via Nominatim
+  const [geocoding, setGeocoding] = useState(false);
+  const geocodeAddress = async () => {
+    const addr = form.address?.trim();
+    if (!addr) return;
+    setGeocoding(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(addr)}`, {
+        headers: { 'User-Agent': 'INSPECTR-FieldOps/1.0' },
+      });
+      const data = await res.json();
+      if (data.length > 0) {
+        setForm({ ...form, lat: data[0].lat, lng: data[0].lon });
+        toast('Location found', 't-pass', '✓');
+      } else {
+        toast('Address not found — try a more specific address or enter coordinates manually', 't-fail', '!');
+      }
+    } catch {
+      toast('Lookup failed — check your connection', 't-fail', '!');
+    }
+    setGeocoding(false);
+  };
+
   // Template group/item helpers
   const addGroup = () => setTmplGroups([...tmplGroups, { name: '', items: [''] }]);
   const removeGroup = (gi: number) => setTmplGroups(tmplGroups.filter((_, i) => i !== gi));
@@ -246,7 +269,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
               {!isTemplateTab && editId === 'new' && (
                 <div className="settings-edit-row">
-                  {renderForm(tab, form, setForm, companies)}
+                  {renderForm(tab, form, setForm, companies, geocodeAddress, geocoding)}
                   <div className="settings-edit-actions">
                     <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
                     <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
@@ -264,7 +287,7 @@ export function SettingsModal({ open, onClose }: Props) {
                   <div key={item.id} className="settings-item">
                     {!isTemplateTab && editId === item.id ? (
                       <div className="settings-edit-row">
-                        {renderForm(tab, form, setForm, companies)}
+                        {renderForm(tab, form, setForm, companies, geocodeAddress, geocoding)}
                         <div className="settings-edit-actions">
                           <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={save}>Save</button>
                           <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelEdit}>Cancel</button>
@@ -316,10 +339,9 @@ export function SettingsModal({ open, onClose }: Props) {
   );
 }
 
-function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<string, string>) => void, companies: Company[] = []) {
+function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<string, string>) => void, companies: Company[] = [], onGeocode?: () => void, geocoding?: boolean) {
   const set = (key: string, val: string) => setForm({ ...form, [key]: val });
   const hasCoords = form.lat && form.lng && !isNaN(Number(form.lat)) && !isNaN(Number(form.lng));
-  const mapQuery = hasCoords ? `${form.lat},${form.lng}` : form.address?.trim() || '';
   return (
     <div className="settings-form">
       <input className="fm-input" placeholder="Name *" value={form.name || ''} onChange={e => set('name', e.target.value)} autoFocus />
@@ -333,13 +355,20 @@ function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<
         <>
           <input className="fm-input" placeholder="Site contact name" value={form.contactName || ''} onChange={e => set('contactName', e.target.value)} />
           <input className="fm-input" placeholder="Site contact phone" type="tel" value={form.contactPhone || ''} onChange={e => set('contactPhone', e.target.value)} />
-          <input className="fm-input" placeholder="Physical address" value={form.address || ''} onChange={e => set('address', e.target.value)} />
+          <div className="site-address-row">
+            <input className="fm-input" placeholder="Physical address" value={form.address || ''} onChange={e => set('address', e.target.value)} style={{ flex: 1 }} />
+            {form.address?.trim() && (
+              <button type="button" className="btn-ghost site-lookup-btn" onClick={onGeocode} disabled={geocoding}>
+                {geocoding ? '...' : 'Lookup'}
+              </button>
+            )}
+          </div>
           <div className="site-coords-row">
             <input className="fm-input" placeholder="Latitude" type="number" step="any" value={form.lat || ''} onChange={e => set('lat', e.target.value)} />
             <input className="fm-input" placeholder="Longitude" type="number" step="any" value={form.lng || ''} onChange={e => set('lng', e.target.value)} />
           </div>
-          <div className="site-hint">Coordinates for remote locations without a street address</div>
-          {mapQuery && (
+          <div className="site-hint">Enter an address and tap Lookup, or enter coordinates for remote locations</div>
+          {hasCoords && (
             <div className="site-map-preview">
               <iframe
                 title="Site location"
@@ -348,17 +377,11 @@ function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<
                 style={{ border: 0, borderRadius: 6 }}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                src={hasCoords
-                  ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.lng) - 0.01},${Number(form.lat) - 0.006},${Number(form.lng) + 0.01},${Number(form.lat) + 0.006}&layer=mapnik&marker=${form.lat},${form.lng}`
-                  : `https://www.openstreetmap.org/export/embed.html?bbox=-180,-90,180,90&layer=mapnik`
-                }
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.lng) - 0.01},${Number(form.lat) - 0.006},${Number(form.lng) + 0.01},${Number(form.lat) + 0.006}&layer=mapnik&marker=${form.lat},${form.lng}`}
               />
               <a
                 className="site-map-link"
-                href={hasCoords
-                  ? `https://www.openstreetmap.org/?mlat=${form.lat}&mlon=${form.lng}#map=15/${form.lat}/${form.lng}`
-                  : `https://www.openstreetmap.org/search?query=${encodeURIComponent(form.address)}`
-                }
+                href={`https://www.openstreetmap.org/?mlat=${form.lat}&mlon=${form.lng}#map=15/${form.lat}/${form.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
