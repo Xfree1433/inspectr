@@ -582,5 +582,11 @@ function formatTimeAgo(dateStr) {
   return 'Yesterday';
 }
 
+// Global error handler — return JSON instead of raw stack traces
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`INSPECTR API running on :${PORT}`));

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import { useApp } from '../context/AppContext';
-import type { Company, Site, Inspector, Template, TemplateDetail, TemplateItemPhoto, Document } from '../types';
+import type { Company, Site, Inspector, Template, TemplateItemPhoto, Document } from '../types';
 
 interface Props {
   open: boolean;
