@@ -1,0 +1,54 @@
+/* ══════════════════════════════════════
+   DESIGN TOKENS — DARK (default)
+══════════════════════════════════════ */
+:root, [data-theme="dark"] {
+  --lime: #C8FF00;
+  --lime-dim: #9DC300;
+  --lime-glow: rgba(200, 255, 0, .10);
+  --bg: #0A0A09;
+  --surface: #111110;
+  --surface2: #181817;
+  --surface3: #1F1F1E;
+  --border: #272725;
+  --border-hi: #363634;
+  --text: #E8E8E2;
+  --text-dim: #8A8A82;
+  --text-ghost: #444442;
+  --pass: #C8FF00;
+  --fail: #FF3B30;
+  --warn: #FF9500;
+  --fail-bg: rgba(255, 59, 48, .12);
+  --pass-bg: rgba(200, 255, 0, .10);
+  --warn-bg: rgba(255, 149, 0, .12);
+  --scanline: rgba(0, 0, 0, .022);
+  --sb: env(safe-area-inset-bottom, 0px);
+  --st: env(safe-area-inset-top, 0px);
+  --hh: 52px;
+  --sh: 66px;
+  --nh: 60px;
+}
+
+/* ══════════════════════════════════════
+   DESIGN TOKENS — LIGHT
+══════════════════════════════════════ */
+[data-theme="light"] {
+  --lime: #2D7A00;
+  --lime-dim: #3D8F10;
+  --lime-glow: rgba(45, 122, 0, .08);
+  --bg: #F5F5F0;
+  --surface: #FFFFFF;
+  --surface2: #F0F0EB;
+  --surface3: #E8E8E3;
+  --border: #D4D4CF;
+  --border-hi: #C0C0BB;
+  --text: #1A1A18;
+  --text-dim: #6B6B63;
+  --text-ghost: #A0A098;
+  --pass: #2D7A00;
+  --fail: #D32F2F;
+  --warn: #E67E00;
+  --fail-bg: rgba(211, 47, 47, .08);
+  --pass-bg: rgba(45, 122, 0, .08);
+  --warn-bg: rgba(230, 126, 0, .08);
+  --scanline: rgba(0, 0, 0, 0);
+}
