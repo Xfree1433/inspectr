@@ -295,7 +295,7 @@
   .app {
     bottom: 0;
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: 340px 1fr;
     grid-template-rows: 1fr;
   }
   .panel {
@@ -322,6 +322,6 @@
   .stats { flex-wrap: nowrap; }
   .sc { flex: 1; min-width: 0; padding: 18px 26px; }
   .sv { font-size: 40px; }
-  .app { grid-template-columns: 1fr 400px; }
+  .app { grid-template-columns: 400px 1fr; }
   .icard { padding: 14px 20px; }
 }
