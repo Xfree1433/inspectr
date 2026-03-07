@@ -44,11 +44,18 @@ export interface Inspection {
   createdAt: string;
 }
 
+export interface CheckItemPhoto {
+  id: string;
+  dataUrl: string;
+  isReference: boolean;
+}
+
 export interface CheckItem {
   id: string;
   text: string;
   status: CheckItemStatus;
   failNote?: string;
+  photos: CheckItemPhoto[];
 }
 
 export interface CheckGroup {
@@ -105,9 +112,27 @@ export interface Template {
   count: number;
 }
 
+export interface TemplateItemPhoto {
+  id: string;
+  dataUrl: string;
+}
+
 export interface TemplateItemDetail {
   id: number;
   text: string;
+  photos: TemplateItemPhoto[];
+}
+
+export interface Document {
+  id: string;
+  name: string;
+  fileType: string;
+  dataUrl: string;
+  companyId: string;
+  companyName: string;
+  siteId: string;
+  siteName: string;
+  createdAt: string;
 }
 
 export interface TemplateGroupDetail {

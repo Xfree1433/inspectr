@@ -90,6 +90,30 @@ db.exec(`
     data_url TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS check_item_photos (
+    id TEXT PRIMARY KEY,
+    check_item_id TEXT REFERENCES check_items(id) ON DELETE CASCADE,
+    data_url TEXT NOT NULL,
+    is_reference INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS template_item_photos (
+    id TEXT PRIMARY KEY,
+    template_item_id INTEGER REFERENCES template_items(id) ON DELETE CASCADE,
+    data_url TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    file_type TEXT DEFAULT '',
+    data_url TEXT NOT NULL,
+    company_id TEXT DEFAULT '',
+    site_id TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS feed_events (
     id TEXT PRIMARY KEY,
     time TEXT DEFAULT (datetime('now')),

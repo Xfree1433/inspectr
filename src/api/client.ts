@@ -72,6 +72,33 @@ export const api = {
 
   getFeed: () => request<import('../types').FeedEvent[]>('/api/feed'),
 
+  // Check item photos
+  addCheckItemPhoto: (checkItemId: string, dataUrl: string) =>
+    request<{ id: string }>(`/api/check-items/${checkItemId}/photos`, { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  deleteCheckItemPhoto: (photoId: string) =>
+    request<{ ok: boolean }>(`/api/check-item-photos/${photoId}`, { method: 'DELETE' }),
+
+  // Template item photos
+  addTemplateItemPhoto: (templateItemId: number, dataUrl: string) =>
+    request<{ id: string }>(`/api/template-items/${templateItemId}/photos`, { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  deleteTemplateItemPhoto: (photoId: string) =>
+    request<{ ok: boolean }>(`/api/template-item-photos/${photoId}`, { method: 'DELETE' }),
+
+  // Documents
+  getDocuments: (companyId?: string, siteId?: string) => {
+    const params = new URLSearchParams();
+    if (companyId) params.set('companyId', companyId);
+    if (siteId) params.set('siteId', siteId);
+    const qs = params.toString();
+    return request<import('../types').Document[]>(`/api/documents${qs ? `?${qs}` : ''}`);
+  },
+  createDocument: (data: { name: string; fileType: string; dataUrl: string; companyId?: string; siteId?: string }) =>
+    request<{ id: string; name: string }>('/api/documents', { method: 'POST', body: JSON.stringify(data) }),
+  updateDocument: (id: string, data: { name: string; companyId?: string; siteId?: string }) =>
+    request<{ ok: boolean }>(`/api/documents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDocument: (id: string) =>
+    request<{ ok: boolean }>(`/api/documents/${id}`, { method: 'DELETE' }),
+
   getReport: (inspectionId: string) => request<any>(`/api/inspections/${inspectionId}/report`),
   submitReport: (inspectionId: string) => request<{ status: string }>(`/api/inspections/${inspectionId}/submit`, { method: 'POST' }),
 };

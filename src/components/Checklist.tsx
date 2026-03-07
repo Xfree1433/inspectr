@@ -1,11 +1,44 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
 import { FailureListModal } from './FailureListModal';
+import type { CheckItemPhoto } from '../types';
 
 export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: (title: string, checkItemId: string) => void; onOpenReport?: () => void }) {
   const { activeInspection, checklist, loadChecklist, toast, incrementFailBadge, refreshAll } = useApp();
   const [showFailures, setShowFailures] = useState(false);
+  const [lightbox, setLightbox] = useState<{ photos: CheckItemPhoto[]; index: number } | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const photoTargetRef = useRef<string>('');
+
+  const handleAddPhoto = (checkItemId: string) => {
+    photoTargetRef.current = checkItemId;
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeInspection) return;
+    if (file.size > 5 * 1024 * 1024) { toast('Photo must be under 5 MB', 't-fail', '!'); e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      if (!ev.target?.result) return;
+      await api.addCheckItemPhoto(photoTargetRef.current, ev.target.result as string);
+      toast('Photo added', 't-pass', '📷');
+      loadChecklist(activeInspection.id);
+    };
+    reader.onerror = () => toast('Failed to read photo', 't-fail', '!');
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!activeInspection) return;
+    await api.deleteCheckItemPhoto(photoId);
+    toast('Photo removed', 't-info', '~');
+    loadChecklist(activeInspection.id);
+    setLightbox(null);
+  };
 
   const { totalItems, doneItems, pct } = useMemo(() => {
     let total = 0, done = 0;
@@ -149,9 +182,22 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                         ⚠ {item.failNote}{!isLocked && ' — tap to edit'}
                       </div>
                     )}
+                    {item.photos && item.photos.length > 0 && (
+                      <div className="crow-photos">
+                        {item.photos.map((p, pi) => (
+                          <div key={p.id} className={`crow-photo-thumb${p.isReference ? ' ref' : ''}`} onClick={(e) => { e.stopPropagation(); setLightbox({ photos: item.photos, index: pi }); }}>
+                            <img src={p.dataUrl} alt="" />
+                            {p.isReference && <span className="ref-badge">REF</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {!item.status && !isLocked && (
                     <div className="crow-acts">
+                      <button className="act act-cam" title="Take photo" onClick={(e) => { e.stopPropagation(); handleAddPhoto(item.id); }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      </button>
                       <button className="act act-p" title="Mark as passed" onClick={(e) => { e.stopPropagation(); handlePass(item.id); }}>
                         <svg width="12" height="12" viewBox="0 0 12 12"><polyline points="1.5,6 4.5,9 10.5,2.5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
                       </button>
@@ -164,14 +210,19 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                     </div>
                   )}
                   {item.status && !isLocked && (
-                    <div className="crow-undo" title={item.status === 'failed' ? 'View/edit failure details' : 'Reset to unchecked'}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        {item.status === 'failed' ? (
-                          <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>
-                        ) : (
-                          <><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></>
-                        )}
-                      </svg>
+                    <div className="crow-done-acts">
+                      <button className="act act-cam" title="Take photo" onClick={(e) => { e.stopPropagation(); handleAddPhoto(item.id); }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      </button>
+                      <div className="crow-undo" title={item.status === 'failed' ? 'View/edit failure details' : 'Reset to unchecked'}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          {item.status === 'failed' ? (
+                            <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>
+                          ) : (
+                            <><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></>
+                          )}
+                        </svg>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -185,6 +236,30 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
           </div>
         )}
       </div>
+      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handlePhotoCapture} />
+      {lightbox && (
+        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
+          <div className="lightbox" onClick={e => e.stopPropagation()}>
+            <img src={lightbox.photos[lightbox.index].dataUrl} alt="" />
+            <div className="lightbox-bar">
+              {lightbox.photos[lightbox.index].isReference && <span className="badge bn">REFERENCE PHOTO</span>}
+              <span className="lightbox-counter">{lightbox.index + 1} / {lightbox.photos.length}</span>
+              <div className="lightbox-nav">
+                {lightbox.photos.length > 1 && (
+                  <>
+                    <button type="button" className="btn-ghost" onClick={() => setLightbox({ ...lightbox, index: (lightbox.index - 1 + lightbox.photos.length) % lightbox.photos.length })}>Prev</button>
+                    <button type="button" className="btn-ghost" onClick={() => setLightbox({ ...lightbox, index: (lightbox.index + 1) % lightbox.photos.length })}>Next</button>
+                  </>
+                )}
+                {!isLocked && !lightbox.photos[lightbox.index].isReference && (
+                  <button type="button" className="btn-ghost" style={{ color: 'var(--fail)' }} onClick={() => handleDeletePhoto(lightbox.photos[lightbox.index].id)}>Delete</button>
+                )}
+                <button type="button" className="btn-ghost" onClick={() => setLightbox(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <FailureListModal
         open={showFailures}
         inspectionId={activeInspection.id}

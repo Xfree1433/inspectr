@@ -1,18 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../api/client';
 import { useApp } from '../context/AppContext';
-import type { Company, Site, Inspector, Template, TemplateDetail } from '../types';
+import type { Company, Site, Inspector, Template, TemplateDetail, TemplateItemPhoto, Document } from '../types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
 
-type Tab = 'companies' | 'sites' | 'inspectors' | 'templates';
+type Tab = 'companies' | 'sites' | 'inspectors' | 'templates' | 'documents';
+
+interface EditItem {
+  id?: number;
+  text: string;
+  photos: TemplateItemPhoto[];
+}
 
 interface EditGroup {
   name: string;
-  items: string[];
+  items: EditItem[];
 }
 
 export function SettingsModal({ open, onClose }: Props) {
@@ -22,8 +28,10 @@ export function SettingsModal({ open, onClose }: Props) {
   const [sites, setSites] = useState<Site[]>([]);
   const [inspectors, setInspectors] = useState<Inspector[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const docFileRef = useRef<HTMLInputElement>(null);
 
   // Template editor state
   const [tmplEditId, setTmplEditId] = useState<string | null>(null);
@@ -33,11 +41,12 @@ export function SettingsModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    const [c, s, i, t] = await Promise.all([api.getCompanies(), api.getSites(), api.getInspectors(), api.getTemplates()]);
+    const [c, s, i, t, d] = await Promise.all([api.getCompanies(), api.getSites(), api.getInspectors(), api.getTemplates(), api.getDocuments()]);
     setCompanies(c);
     setSites(s);
     setInspectors(i);
     setTemplates(t);
+    setDocuments(d);
   }, []);
 
   useEffect(() => {
@@ -49,7 +58,7 @@ export function SettingsModal({ open, onClose }: Props) {
       setTmplEditId('new');
       setTmplName('');
       setTmplIcon('📋');
-      setTmplGroups([{ name: 'Group 1', items: [''] }]);
+      setTmplGroups([{ name: 'Group 1', items: [{ text: '', photos: [] }] }]);
       return;
     }
     setEditId('new');
@@ -73,7 +82,7 @@ export function SettingsModal({ open, onClose }: Props) {
       setTmplIcon(detail.icon);
       setTmplGroups(detail.groups.map(g => ({
         name: g.name,
-        items: g.items.map(i => i.text),
+        items: g.items.map(i => ({ id: i.id, text: i.text, photos: i.photos || [] })),
       })));
     } catch { toast('Failed to load template', 't-fail', '!'); }
     setLoading(false);
@@ -112,7 +121,7 @@ export function SettingsModal({ open, onClose }: Props) {
   const saveTmpl = async () => {
     if (!tmplName.trim()) { toast('Template name is required', 't-fail', '!'); return; }
     const cleanGroups = tmplGroups
-      .map(g => ({ name: g.name.trim(), items: g.items.filter(i => i.trim()).map(i => ({ text: i.trim() })) }))
+      .map(g => ({ name: g.name.trim(), items: g.items.filter(i => i.text.trim()).map(i => ({ text: i.text.trim() })) }))
       .filter(g => g.name && g.items.length > 0);
     if (cleanGroups.length === 0) { toast('Add at least one group with items', 't-fail', '!'); return; }
     try {
@@ -170,13 +179,57 @@ export function SettingsModal({ open, onClose }: Props) {
     const g = [...tmplGroups]; g[gi] = { ...g[gi], name }; setTmplGroups(g);
   };
   const addItem = (gi: number) => {
-    const g = [...tmplGroups]; g[gi] = { ...g[gi], items: [...g[gi].items, ''] }; setTmplGroups(g);
+    const g = [...tmplGroups]; g[gi] = { ...g[gi], items: [...g[gi].items, { text: '', photos: [] }] }; setTmplGroups(g);
   };
   const removeItem = (gi: number, ii: number) => {
     const g = [...tmplGroups]; g[gi] = { ...g[gi], items: g[gi].items.filter((_, i) => i !== ii) }; setTmplGroups(g);
   };
   const updateItem = (gi: number, ii: number, text: string) => {
-    const g = [...tmplGroups]; const items = [...g[gi].items]; items[ii] = text; g[gi] = { ...g[gi], items }; setTmplGroups(g);
+    const g = [...tmplGroups]; const items = [...g[gi].items]; items[ii] = { ...items[ii], text }; g[gi] = { ...g[gi], items }; setTmplGroups(g);
+  };
+
+  // Template item photo handling
+  const tmplPhotoRef = useRef<HTMLInputElement>(null);
+  const tmplPhotoTarget = useRef<{ gi: number; ii: number }>({ gi: 0, ii: 0 });
+
+  const handleTmplPhotoAdd = (gi: number, ii: number) => {
+    const item = tmplGroups[gi]?.items[ii];
+    if (!item?.id) { toast('Save the template first, then add photos', 't-info', '!'); return; }
+    tmplPhotoTarget.current = { gi, ii };
+    tmplPhotoRef.current?.click();
+  };
+
+  const handleTmplPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast('Photo must be under 5 MB', 't-fail', '!'); e.target.value = ''; return; }
+    const { gi, ii } = tmplPhotoTarget.current;
+    const item = tmplGroups[gi]?.items[ii];
+    if (!item?.id) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      if (!ev.target?.result) return;
+      const { id } = await api.addTemplateItemPhoto(item.id!, ev.target.result as string);
+      const g = [...tmplGroups];
+      const items = [...g[gi].items];
+      items[ii] = { ...items[ii], photos: [...items[ii].photos, { id, dataUrl: ev.target.result as string }] };
+      g[gi] = { ...g[gi], items };
+      setTmplGroups(g);
+      toast('Reference photo added', 't-pass', '📷');
+    };
+    reader.onerror = () => toast('Failed to read photo', 't-fail', '!');
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleTmplPhotoDelete = async (gi: number, ii: number, photoId: string) => {
+    await api.deleteTemplateItemPhoto(photoId);
+    const g = [...tmplGroups];
+    const items = [...g[gi].items];
+    items[ii] = { ...items[ii], photos: items[ii].photos.filter(p => p.id !== photoId) };
+    g[gi] = { ...g[gi], items };
+    setTmplGroups(g);
+    toast('Photo removed', 't-info', '~');
   };
 
   if (!open) return null;
@@ -235,12 +288,27 @@ export function SettingsModal({ open, onClose }: Props) {
                   </div>
                   <div className="tmpl-items-list">
                     {group.items.map((item, ii) => (
-                      <div key={ii} className="tmpl-item-row">
-                        <span className="tmpl-item-num">{ii + 1}.</span>
-                        <input className="fm-input" placeholder="Check item text..." value={item} onChange={e => updateItem(gi, ii, e.target.value)} style={{ flex: 1 }} />
-                        <button className="tmpl-item-remove" onClick={() => removeItem(gi, ii)} title="Remove item">
-                          <svg width="10" height="10" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.8"/></svg>
-                        </button>
+                      <div key={ii} className="tmpl-item-row-wrap">
+                        <div className="tmpl-item-row">
+                          <span className="tmpl-item-num">{ii + 1}.</span>
+                          <input className="fm-input" placeholder="Check item text..." value={item.text} onChange={e => updateItem(gi, ii, e.target.value)} style={{ flex: 1 }} />
+                          <button type="button" className="tmpl-item-photo-btn" onClick={() => handleTmplPhotoAdd(gi, ii)} title={item.id ? 'Add reference photo' : 'Save template first'}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                          </button>
+                          <button className="tmpl-item-remove" onClick={() => removeItem(gi, ii)} title="Remove item">
+                            <svg width="10" height="10" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.8"/></svg>
+                          </button>
+                        </div>
+                        {item.photos.length > 0 && (
+                          <div className="tmpl-item-photos">
+                            {item.photos.map(p => (
+                              <div key={p.id} className="tmpl-photo-thumb">
+                                <img src={p.dataUrl} alt="" />
+                                <button type="button" className="del-photo" onClick={() => handleTmplPhotoDelete(gi, ii, p.id)}>x</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                     <button className="btn-ghost tmpl-add-item" onClick={() => addItem(gi)}>+ Add Item</button>
@@ -258,6 +326,7 @@ export function SettingsModal({ open, onClose }: Props) {
                   {tmplEditId === 'new' ? 'Create Template' : 'Save Changes'}
                 </button>
               </div>
+              <input ref={tmplPhotoRef} type="file" accept="image/*" title="Upload reference photo" style={{ display: 'none' }} onChange={handleTmplPhotoCapture} />
             </div>
           ) : (
             <>

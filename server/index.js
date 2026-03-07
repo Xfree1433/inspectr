@@ -125,7 +125,10 @@ app.get('/api/templates/:id', (req, res) => {
     groups: groups.map(g => ({
       id: g.id,
       name: g.name,
-      items: db.prepare('SELECT id, text FROM template_items WHERE group_id = ? ORDER BY sort_order').all(g.id),
+      items: db.prepare('SELECT id, text FROM template_items WHERE group_id = ? ORDER BY sort_order').all(g.id).map(i => ({
+        ...i,
+        photos: db.prepare('SELECT id, data_url as dataUrl FROM template_item_photos WHERE template_item_id = ?').all(i.id),
+      })),
     })),
   };
   res.json(result);
@@ -174,6 +177,64 @@ app.patch('/api/templates/:id', (req, res) => {
 
 app.delete('/api/templates/:id', (req, res) => {
   db.prepare('DELETE FROM templates WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Template Item Photos ──
+app.get('/api/template-items/:id/photos', (req, res) => {
+  const photos = db.prepare('SELECT id, data_url as dataUrl FROM template_item_photos WHERE template_item_id = ?').all(req.params.id);
+  res.json(photos);
+});
+
+app.post('/api/template-items/:id/photos', (req, res) => {
+  const { dataUrl } = req.body;
+  if (!dataUrl) return res.status(400).json({ error: 'dataUrl is required' });
+  const id = uuid();
+  db.prepare('INSERT INTO template_item_photos (id, template_item_id, data_url) VALUES (?, ?, ?)').run(id, req.params.id, dataUrl);
+  res.status(201).json({ id });
+});
+
+app.delete('/api/template-item-photos/:id', (req, res) => {
+  db.prepare('DELETE FROM template_item_photos WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Documents ──
+app.get('/api/documents', (req, res) => {
+  const { companyId, siteId } = req.query;
+  let query = 'SELECT d.*, c.name as company_name, s.name as site_name FROM documents d LEFT JOIN companies c ON d.company_id = c.id LEFT JOIN sites s ON d.site_id = s.id';
+  const conditions = [];
+  const params = [];
+  if (companyId) { conditions.push('d.company_id = ?'); params.push(companyId); }
+  if (siteId) { conditions.push('d.site_id = ?'); params.push(siteId); }
+  if (conditions.length > 0) query += ` WHERE ${conditions.join(' AND ')}`;
+  query += ' ORDER BY d.created_at DESC';
+  const rows = db.prepare(query).all(...params);
+  res.json(rows.map(r => ({
+    id: r.id, name: r.name, fileType: r.file_type, dataUrl: r.data_url,
+    companyId: r.company_id || '', companyName: r.company_name || '',
+    siteId: r.site_id || '', siteName: r.site_name || '',
+    createdAt: r.created_at,
+  })));
+});
+
+app.post('/api/documents', (req, res) => {
+  const { name, fileType, dataUrl, companyId, siteId } = req.body;
+  if (!name?.trim() || !dataUrl) return res.status(400).json({ error: 'Name and file are required' });
+  const id = `doc-${uuid().slice(0, 8)}`;
+  db.prepare('INSERT INTO documents (id, name, file_type, data_url, company_id, site_id) VALUES (?, ?, ?, ?, ?, ?)').run(id, name.trim(), fileType || '', dataUrl, companyId || '', siteId || '');
+  res.status(201).json({ id, name: name.trim() });
+});
+
+app.patch('/api/documents/:id', (req, res) => {
+  const { name, companyId, siteId } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  db.prepare('UPDATE documents SET name = ?, company_id = ?, site_id = ? WHERE id = ?').run(name.trim(), companyId || '', siteId || '', req.params.id);
+  res.json({ ok: true });
+});
+
+app.delete('/api/documents/:id', (req, res) => {
+  db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
@@ -265,15 +326,22 @@ app.post('/api/inspections', (req, res) => {
   const id = `INS-${String(db.prepare('SELECT COUNT(*) as c FROM inspections').get().c + 892).padStart(4, '0')}`;
   db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, company_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, companyId || null, notes || '');
 
-  // Create checklist groups based on template (from DB)
+  // Create checklist from template and copy any reference photos
   if (templateId) {
-    const groups = getTemplateChecklist(templateId);
-    if (groups.length > 0) {
+    const tmplGroups = db.prepare('SELECT * FROM template_groups WHERE template_id = ? ORDER BY sort_order').all(templateId);
+    if (tmplGroups.length > 0) {
       const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
       const insItem = db.prepare('INSERT INTO check_items (id, group_id, text, status, sort_order) VALUES (?, ?, ?, ?, ?)');
-      groups.forEach((group, gi) => {
-        const gid = insGroup.run(id, group.name, gi).lastInsertRowid;
-        group.items.forEach((text, ii) => insItem.run(uuid(), gid, text, '', ii));
+      const insRefPhoto = db.prepare('INSERT INTO check_item_photos (id, check_item_id, data_url, is_reference) VALUES (?, ?, ?, 1)');
+      tmplGroups.forEach((tg, gi) => {
+        const gid = insGroup.run(id, tg.name, gi).lastInsertRowid;
+        const tmplItems = db.prepare('SELECT * FROM template_items WHERE group_id = ? ORDER BY sort_order').all(tg.id);
+        tmplItems.forEach((ti, ii) => {
+          const ciId = uuid();
+          insItem.run(ciId, gid, ti.text, '', ii);
+          const tmplPhotos = db.prepare('SELECT data_url FROM template_item_photos WHERE template_item_id = ?').all(ti.id);
+          tmplPhotos.forEach(p => insRefPhoto.run(uuid(), ciId, p.data_url));
+        });
       });
     }
   }
@@ -295,7 +363,10 @@ app.get('/api/inspections/:id/checklist', (req, res) => {
   const groups = db.prepare('SELECT * FROM check_groups WHERE inspection_id = ? ORDER BY sort_order').all(req.params.id);
   const result = groups.map(g => ({
     name: g.name,
-    items: db.prepare('SELECT id, text, status, fail_note as failNote FROM check_items WHERE group_id = ? ORDER BY sort_order').all(g.id),
+    items: db.prepare('SELECT id, text, status, fail_note as failNote FROM check_items WHERE group_id = ? ORDER BY sort_order').all(g.id).map(ci => {
+      const photos = db.prepare('SELECT id, data_url as dataUrl, is_reference as isReference FROM check_item_photos WHERE check_item_id = ? ORDER BY is_reference DESC, created_at').all(ci.id);
+      return { ...ci, photos: photos.map(p => ({ id: p.id, dataUrl: p.dataUrl, isReference: !!p.isReference })) };
+    }),
   }));
   res.json(result);
 });
@@ -312,6 +383,30 @@ app.patch('/api/check-items/:id', (req, res) => {
   if (item) {
     recalcScore(item.inspection_id);
   }
+  res.json({ ok: true });
+});
+
+// ── Check Item Photos ──
+app.get('/api/check-items/:id/photos', (req, res) => {
+  const photos = db.prepare('SELECT id, data_url as dataUrl, is_reference as isReference FROM check_item_photos WHERE check_item_id = ? ORDER BY created_at').all(req.params.id);
+  res.json(photos.map(p => ({ ...p, isReference: !!p.isReference })));
+});
+
+app.post('/api/check-items/:id/photos', (req, res) => {
+  const { dataUrl } = req.body;
+  if (!dataUrl) return res.status(400).json({ error: 'dataUrl is required' });
+  const id = uuid();
+  db.prepare('INSERT INTO check_item_photos (id, check_item_id, data_url) VALUES (?, ?, ?)').run(id, req.params.id, dataUrl);
+
+  // Feed event
+  const item = db.prepare('SELECT ci.text, cg.inspection_id FROM check_items ci JOIN check_groups cg ON ci.group_id = cg.id WHERE ci.id = ?').get(req.params.id);
+  if (item) addFeedEvent('warn', item.inspection_id, 'Photo added', item.text);
+
+  res.status(201).json({ id });
+});
+
+app.delete('/api/check-item-photos/:id', (req, res) => {
+  db.prepare('DELETE FROM check_item_photos WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
