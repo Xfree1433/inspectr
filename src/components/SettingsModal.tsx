@@ -54,6 +54,7 @@ export function SettingsModal({ open, onClose }: Props) {
   }, [open, load]);
 
   const startAdd = () => {
+    if (tab === 'documents') { startAddDoc(); return; }
     if (tab === 'templates') {
       setTmplEditId('new');
       setTmplName('');
@@ -232,6 +233,72 @@ export function SettingsModal({ open, onClose }: Props) {
     toast('Photo removed', 't-info', '~');
   };
 
+  // Document handling
+  const [docEditId, setDocEditId] = useState<string | null>(null);
+  const [docForm, setDocForm] = useState<{ name: string; companyId: string; siteId: string }>({ name: '', companyId: '', siteId: '' });
+  const [docFile, setDocFile] = useState<{ dataUrl: string; fileType: string } | null>(null);
+
+  const startAddDoc = () => {
+    setDocEditId('new');
+    setDocForm({ name: '', companyId: '', siteId: '' });
+    setDocFile(null);
+  };
+
+  const startEditDoc = (doc: Document) => {
+    setDocEditId(doc.id);
+    setDocForm({ name: doc.name, companyId: doc.companyId, siteId: doc.siteId });
+    setDocFile(null);
+  };
+
+  const cancelDocEdit = () => { setDocEditId(null); setDocForm({ name: '', companyId: '', siteId: '' }); setDocFile(null); };
+
+  const handleDocFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast('File must be under 10 MB', 't-fail', '!'); e.target.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (!ev.target?.result) return;
+      setDocFile({ dataUrl: ev.target.result as string, fileType: file.type });
+      if (!docForm.name) setDocForm(f => ({ ...f, name: file.name.replace(/\.[^.]+$/, '') }));
+    };
+    reader.onerror = () => toast('Failed to read file', 't-fail', '!');
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const saveDoc = async () => {
+    if (!docForm.name.trim()) { toast('Name is required', 't-fail', '!'); return; }
+    try {
+      if (docEditId === 'new') {
+        if (!docFile) { toast('Select a file to upload', 't-fail', '!'); return; }
+        await api.createDocument({ name: docForm.name.trim(), fileType: docFile.fileType, dataUrl: docFile.dataUrl, companyId: docForm.companyId || undefined, siteId: docForm.siteId || undefined });
+        toast('Document added', 't-pass', '+');
+      } else {
+        await api.updateDocument(docEditId!, { name: docForm.name.trim(), companyId: docForm.companyId || undefined, siteId: docForm.siteId || undefined });
+        toast('Document updated', 't-pass', '✓');
+      }
+      cancelDocEdit();
+      load();
+    } catch { toast('Failed to save document', 't-fail', '!'); }
+  };
+
+  const deleteDoc = async (id: string) => {
+    try {
+      await api.deleteDocument(id);
+      toast('Document deleted', 't-info', '~');
+      load();
+    } catch { toast('Failed to delete', 't-fail', '!'); }
+  };
+
+  const getDocIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) return '🖼';
+    if (fileType.includes('pdf')) return '📄';
+    if (fileType.includes('word') || fileType.includes('document')) return '📝';
+    if (fileType.includes('sheet') || fileType.includes('excel') || fileType.includes('csv')) return '📊';
+    return '📎';
+  };
+
   if (!open) return null;
 
   const tabs: { id: Tab; label: string; count: number }[] = [
@@ -239,10 +306,12 @@ export function SettingsModal({ open, onClose }: Props) {
     { id: 'sites', label: 'Sites', count: sites.length },
     { id: 'inspectors', label: 'Inspectors', count: inspectors.length },
     { id: 'templates', label: 'Templates', count: templates.length },
+    { id: 'documents', label: 'Docs', count: documents.length },
   ];
 
   const isTemplateTab = tab === 'templates';
-  const items = tab === 'companies' ? companies : tab === 'sites' ? sites : tab === 'inspectors' ? inspectors : templates;
+  const isDocumentTab = tab === 'documents';
+  const items = tab === 'companies' ? companies : tab === 'sites' ? sites : tab === 'inspectors' ? inspectors : tab === 'documents' ? documents : templates;
 
   return (
     <div className="modal-overlay open" onClick={onClose}>
@@ -258,15 +327,99 @@ export function SettingsModal({ open, onClose }: Props) {
             <button
               key={t.id}
               className={`settings-tab${tab === t.id ? ' active' : ''}`}
-              onClick={() => { setTab(t.id); cancelEdit(); cancelTmplEdit(); }}
+              onClick={() => { setTab(t.id); cancelEdit(); cancelTmplEdit(); cancelDocEdit(); }}
             >
               {t.label} <span className="settings-tab-count">{t.count}</span>
             </button>
           ))}
         </div>
         <div className="modal-body" style={{ padding: 0, minHeight: 300, overflowY: 'auto', maxHeight: 'calc(90vh - 130px)' }}>
-          {/* Template editor view */}
-          {isTemplateTab && tmplEditId ? (
+          {/* Documents tab */}
+          {isDocumentTab ? (
+            <div>
+              <div className="settings-toolbar">
+                <button className="btn-lime" style={{ padding: '8px 16px', fontSize: 12 }} onClick={startAddDoc}>+ Add Document</button>
+              </div>
+
+              {docEditId === 'new' && (
+                <div className="settings-edit-row">
+                  <div className="settings-form">
+                    <input className="fm-input" placeholder="Document name *" value={docForm.name} onChange={e => setDocForm({ ...docForm, name: e.target.value })} autoFocus />
+                    <button type="button" className="btn-ghost doc-file-btn" onClick={() => docFileRef.current?.click()}>
+                      {docFile ? '✓ File selected' : 'Choose file *'}
+                    </button>
+                    <input ref={docFileRef} type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" style={{ display: 'none' }} onChange={handleDocFileChange} />
+                    <select className="fm-input" title="Company" value={docForm.companyId} onChange={e => setDocForm({ ...docForm, companyId: e.target.value })}>
+                      <option value="">— No company —</option>
+                      {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <select className="fm-input" title="Site" value={docForm.siteId} onChange={e => setDocForm({ ...docForm, siteId: e.target.value })}>
+                      <option value="">— No site —</option>
+                      {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="settings-edit-actions">
+                    <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={saveDoc}>Upload</button>
+                    <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelDocEdit}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {documents.length === 0 && !docEditId ? (
+                <div className="empty-state" style={{ padding: '40px 20px' }}>
+                  <div className="empty-state-title">No documents yet</div>
+                  <div className="empty-state-text">Upload SOPs, standards, reference guides, or site plans.</div>
+                </div>
+              ) : (
+                documents.map(doc => (
+                  <div key={doc.id} className="settings-item">
+                    {docEditId === doc.id ? (
+                      <div className="settings-edit-row">
+                        <div className="settings-form">
+                          <input className="fm-input" placeholder="Document name *" value={docForm.name} onChange={e => setDocForm({ ...docForm, name: e.target.value })} autoFocus />
+                          <select className="fm-input" title="Company" value={docForm.companyId} onChange={e => setDocForm({ ...docForm, companyId: e.target.value })}>
+                            <option value="">— No company —</option>
+                            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <select className="fm-input" title="Site" value={docForm.siteId} onChange={e => setDocForm({ ...docForm, siteId: e.target.value })}>
+                            <option value="">— No site —</option>
+                            {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="settings-edit-actions">
+                          <button className="btn-lime" style={{ fontSize: 12, padding: '6px 14px' }} onClick={saveDoc}>Save</button>
+                          <button className="btn-ghost" style={{ fontSize: 12, padding: '6px 14px' }} onClick={cancelDocEdit}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="settings-item-row">
+                        <div className="settings-item-info">
+                          <div style={{ fontSize: 20, width: 32, textAlign: 'center' }}>{getDocIcon(doc.fileType)}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="settings-item-name">{doc.name}</div>
+                            <div className="settings-item-sub">
+                              {[doc.companyName, doc.siteName].filter(Boolean).join(' · ') || 'Unlinked'}
+                              {' · '}
+                              {new Date(doc.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="settings-item-actions">
+                          {doc.dataUrl && (
+                            <a className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', textDecoration: 'none' }} href={doc.dataUrl} download={doc.name} title="Download">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            </a>
+                          )}
+                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px' }} onClick={() => startEditDoc(doc)}>Edit</button>
+                          <button className="btn-ghost" style={{ fontSize: 11, padding: '6px 10px', color: 'var(--fail)' }} onClick={() => deleteDoc(doc.id)}>Delete</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : isTemplateTab && tmplEditId ? (
             <div className="tmpl-editor">
               <div className="tmpl-editor-header">
                 <div className="field-group" style={{ padding: '12px 16px 0' }}>
@@ -332,7 +485,7 @@ export function SettingsModal({ open, onClose }: Props) {
             <>
               <div className="settings-toolbar">
                 <button className="btn-lime" style={{ padding: '8px 16px', fontSize: 12 }} onClick={startAdd}>
-                  + Add {isTemplateTab ? 'Template' : tab.slice(0, -1) === 'companie' ? 'Company' : tab.slice(0, -1).replace(/^./, c => c.toUpperCase())}
+                  + Add {isTemplateTab ? 'Template' : tab === 'companies' ? 'Company' : tab.slice(0, -1).replace(/^./, c => c.toUpperCase())}
                 </button>
               </div>
 
