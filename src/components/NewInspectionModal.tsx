@@ -67,8 +67,12 @@ export function NewInspectionModal({ open, onClose }: Props) {
           </button>
         </div>
         <div className="modal-body">
+          <div className="section-hint modal-hint">
+            Set up a new field inspection. Choose a template, select the site, assign an inspector, and schedule the date.
+          </div>
           <div className="field-group">
             <div className="field-label">Inspection Template</div>
+            <div className="field-hint field-hint-top">Determines the checklist items that will be generated for this inspection.</div>
             <div className="template-grid">
               {templates.map(t => (
                 <button key={t.id} className={`tmpl-card${selectedTemplate === t.id ? ' active' : ''}`} onClick={() => setSelectedTemplate(t.id)}>

@@ -70,6 +70,9 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
           </button>
         </div>
         <div className="modal-body">
+          <div className="section-hint modal-hint">
+            Document this failure with severity, description, and photo evidence. Assign remediation to a team member with a deadline.
+          </div>
           <div className="field-group">
             <div className="field-label">Severity Level</div>
             <div className="fail-severity-row">
@@ -79,10 +82,12 @@ export function FailureModal({ open, title, checkItemId, onClose }: Props) {
                 </button>
               ))}
             </div>
+            <div className="field-hint">Low: cosmetic/minor. Medium: functional impact. High: safety risk or code violation.</div>
           </div>
           <div className="field-group">
             <div className="field-label">Failure Description</div>
             <textarea className="field-input" rows={3} placeholder="Describe the defect in detail..." value={description} onChange={e => setDescription(e.target.value)} />
+            <div className="field-hint">Include location, extent of damage, and any measurements if applicable.</div>
           </div>
           <div className="field-group">
             <div className="field-label">Photo Evidence</div>
