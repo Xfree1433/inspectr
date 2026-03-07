@@ -53,13 +53,14 @@ export function SettingsModal({ open, onClose }: Props) {
       return;
     }
     setEditId('new');
-    setForm(tab === 'companies' ? { name: '', contact: '', phone: '' } : tab === 'inspectors' ? { name: '', initials: '', email: '', phone: '', companyId: '' } : { name: '' });
+    setForm(tab === 'companies' ? { name: '', contact: '', phone: '' } : tab === 'inspectors' ? { name: '', initials: '', email: '', phone: '', companyId: '' } : { name: '', contactName: '', contactPhone: '', address: '', lat: '', lng: '' });
   };
 
   const startEdit = (item: any) => {
     setEditId(item.id);
     if (tab === 'companies') setForm({ name: item.name, contact: item.contact || '', phone: item.phone || '' });
     else if (tab === 'inspectors') setForm({ name: item.name, initials: item.initials || '', email: (item as Inspector).email || '', phone: (item as Inspector).phone || '', companyId: (item as Inspector).companyId || '' });
+    else if (tab === 'sites') setForm({ name: item.name, contactName: (item as Site).contactName || '', contactPhone: (item as Site).contactPhone || '', address: (item as Site).address || '', lat: (item as Site).lat != null ? String((item as Site).lat) : '', lng: (item as Site).lng != null ? String((item as Site).lng) : '' });
     else setForm({ name: item.name });
   };
 
@@ -81,18 +82,25 @@ export function SettingsModal({ open, onClose }: Props) {
   const cancelEdit = () => { setEditId(null); setForm({}); };
   const cancelTmplEdit = () => { setTmplEditId(null); setTmplGroups([]); };
 
+  const buildSiteData = () => ({
+    name: form.name, contactName: form.contactName, contactPhone: form.contactPhone,
+    address: form.address,
+    lat: form.lat ? parseFloat(form.lat) : null,
+    lng: form.lng ? parseFloat(form.lng) : null,
+  });
+
   const save = async () => {
     if (!form.name?.trim()) { toast('Name is required', 't-fail', '!'); return; }
     try {
       if (editId === 'new') {
         if (tab === 'companies') await api.createCompany(form as any);
         else if (tab === 'inspectors') await api.createInspector(form as any);
-        else await api.createSite(form as any);
+        else if (tab === 'sites') await api.createSite(buildSiteData());
         toast(`${tab.slice(0, -1).replace(/^./, c => c.toUpperCase())} added`, 't-pass', '+');
       } else {
         if (tab === 'companies') await api.updateCompany(editId!, form as any);
         else if (tab === 'inspectors') await api.updateInspector(editId!, form as any);
-        else await api.updateSite(editId!, form as any);
+        else if (tab === 'sites') await api.updateSite(editId!, buildSiteData());
         toast('Updated', 't-pass', '✓');
       }
       cancelEdit();
@@ -272,6 +280,11 @@ export function SettingsModal({ open, onClose }: Props) {
                             {tab === 'companies' && (item as Company).contact && (
                               <div className="settings-item-sub">{(item as Company).contact}{(item as Company).phone ? ` · ${(item as Company).phone}` : ''}</div>
                             )}
+                            {tab === 'sites' && (
+                              <div className="settings-item-sub">
+                                {[(item as Site).address, (item as Site).contactName].filter(Boolean).join(' · ') || ((item as Site).lat != null ? `${(item as Site).lat}, ${(item as Site).lng}` : 'No address')}
+                              </div>
+                            )}
                             {tab === 'inspectors' && (
                               <div className="settings-item-sub">
                                 {[(item as Inspector).companyName, (item as Inspector).email, (item as Inspector).phone].filter(Boolean).join(' · ') || 'No details'}
@@ -305,6 +318,8 @@ export function SettingsModal({ open, onClose }: Props) {
 
 function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<string, string>) => void, companies: Company[] = []) {
   const set = (key: string, val: string) => setForm({ ...form, [key]: val });
+  const hasCoords = form.lat && form.lng && !isNaN(Number(form.lat)) && !isNaN(Number(form.lng));
+  const mapQuery = hasCoords ? `${form.lat},${form.lng}` : form.address?.trim() || '';
   return (
     <div className="settings-form">
       <input className="fm-input" placeholder="Name *" value={form.name || ''} onChange={e => set('name', e.target.value)} autoFocus />
@@ -312,6 +327,45 @@ function renderForm(tab: Tab, form: Record<string, string>, setForm: (f: Record<
         <>
           <input className="fm-input" placeholder="Contact person" value={form.contact || ''} onChange={e => set('contact', e.target.value)} />
           <input className="fm-input" placeholder="Phone" value={form.phone || ''} onChange={e => set('phone', e.target.value)} />
+        </>
+      )}
+      {tab === 'sites' && (
+        <>
+          <input className="fm-input" placeholder="Site contact name" value={form.contactName || ''} onChange={e => set('contactName', e.target.value)} />
+          <input className="fm-input" placeholder="Site contact phone" type="tel" value={form.contactPhone || ''} onChange={e => set('contactPhone', e.target.value)} />
+          <input className="fm-input" placeholder="Physical address" value={form.address || ''} onChange={e => set('address', e.target.value)} />
+          <div className="site-coords-row">
+            <input className="fm-input" placeholder="Latitude" type="number" step="any" value={form.lat || ''} onChange={e => set('lat', e.target.value)} />
+            <input className="fm-input" placeholder="Longitude" type="number" step="any" value={form.lng || ''} onChange={e => set('lng', e.target.value)} />
+          </div>
+          <div className="site-hint">Coordinates for remote locations without a street address</div>
+          {mapQuery && (
+            <div className="site-map-preview">
+              <iframe
+                title="Site location"
+                width="100%"
+                height="180"
+                style={{ border: 0, borderRadius: 6 }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={hasCoords
+                  ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(form.lng) - 0.01},${Number(form.lat) - 0.006},${Number(form.lng) + 0.01},${Number(form.lat) + 0.006}&layer=mapnik&marker=${form.lat},${form.lng}`
+                  : `https://www.openstreetmap.org/export/embed.html?bbox=-180,-90,180,90&layer=mapnik`
+                }
+              />
+              <a
+                className="site-map-link"
+                href={hasCoords
+                  ? `https://www.openstreetmap.org/?mlat=${form.lat}&mlon=${form.lng}#map=15/${form.lat}/${form.lng}`
+                  : `https://www.openstreetmap.org/search?query=${encodeURIComponent(form.address)}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in Maps
+              </a>
+            </div>
+          )}
         </>
       )}
       {tab === 'inspectors' && (

@@ -401,6 +401,8 @@
 .report-site { font-family: 'Inter', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: .5px; }
 .report-meta { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-top: 4px; display: flex; flex-wrap: wrap; gap: 12px; }
 .report-meta-secondary { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 400; color: var(--text-dim); display: flex; flex-wrap: wrap; gap: 12px; }
+.report-coords-link { color: var(--lime); text-decoration: none; font-weight: 500; font-family: 'Inter', sans-serif; font-size: 12px; }
+.report-coords-link:hover { text-decoration: underline; }
 .report-score-big { display: flex; align-items: center; gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 .rsb-num { font-family: 'Inter', sans-serif; font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 .rsb-bar-wrap { flex: 1; }
@@ -816,6 +818,14 @@
   display: flex;
   gap: 6px;
 }
+
+/* ── Site Form ── */
+.site-coords-row { display: flex; gap: 8px; }
+.site-coords-row .fm-input { flex: 1; }
+.site-hint { font-size: 11px; color: var(--text-dim); margin-top: -4px; }
+.site-map-preview { border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.site-map-link { display: block; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; color: var(--lime); text-decoration: none; background: var(--surface2); border-top: 1px solid var(--border); }
+.site-map-link:hover { background: var(--surface3); }
 
 /* ── Template Editor ── */
 .tmpl-editor {

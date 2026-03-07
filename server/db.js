@@ -20,7 +20,12 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS sites (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    contact_name TEXT DEFAULT '',
+    contact_phone TEXT DEFAULT '',
+    address TEXT DEFAULT '',
+    lat REAL DEFAULT NULL,
+    lng REAL DEFAULT NULL
   );
 
   CREATE TABLE IF NOT EXISTS templates (
@@ -118,6 +123,11 @@ try { db.exec("ALTER TABLE inspections ADD COLUMN company_id TEXT REFERENCES com
 try { db.exec("ALTER TABLE inspectors ADD COLUMN email TEXT DEFAULT ''"); } catch { /* already exists */ }
 try { db.exec("ALTER TABLE inspectors ADD COLUMN phone TEXT DEFAULT ''"); } catch { /* already exists */ }
 try { db.exec("ALTER TABLE inspectors ADD COLUMN company_id TEXT DEFAULT ''"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE sites ADD COLUMN contact_name TEXT DEFAULT ''"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE sites ADD COLUMN contact_phone TEXT DEFAULT ''"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE sites ADD COLUMN address TEXT DEFAULT ''"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE sites ADD COLUMN lat REAL DEFAULT NULL"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE sites ADD COLUMN lng REAL DEFAULT NULL"); } catch { /* already exists */ }
 
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_check_groups_insp ON check_groups(inspection_id);

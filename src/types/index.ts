@@ -15,6 +15,11 @@ export interface Inspector {
 export interface Site {
   id: string;
   name: string;
+  contactName: string;
+  contactPhone: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface Company {

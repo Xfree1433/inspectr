@@ -13,6 +13,11 @@ interface ReportData {
   inspectorEmail: string;
   inspectorPhone: string;
   inspectorCompany: string;
+  siteAddress: string;
+  siteContactName: string;
+  siteContactPhone: string;
+  siteLat: number | null;
+  siteLng: number | null;
   createdAt: string;
   sections: { name: string; score: number; items: { text: string; status: string; note?: string }[] }[];
 }
@@ -111,6 +116,9 @@ export function ReportModal({ open, onClose }: Props) {
       ``,
       `ID: ${report.id}`,
       `Site: ${report.site}`,
+      ...(report.siteAddress ? [`Address: ${report.siteAddress}`] : []),
+      ...(report.siteContactName ? [`Site Contact: ${report.siteContactName}${report.siteContactPhone ? ` · ${report.siteContactPhone}` : ''}`] : []),
+      ...(report.siteLat != null && report.siteLng != null ? [`Coordinates: ${report.siteLat}, ${report.siteLng}`] : []),
       `Type: ${report.type}`,
       `Inspector: ${report.inspectorName}${report.inspectorCompany ? ` — ${report.inspectorCompany}` : ''}`,
       ...(report.inspectorEmail ? [`Email: ${report.inspectorEmail}`] : []),
@@ -166,6 +174,17 @@ export function ReportModal({ open, onClose }: Props) {
           <div className="report-hero">
             <div className="report-id">{report.id} · {report.type}</div>
             <div className="report-site">{report.site}</div>
+            {(report.siteAddress || report.siteContactName) && (
+              <div className="report-meta-secondary">
+                {report.siteAddress && <span>{report.siteAddress}</span>}
+                {report.siteContactName && <span>{report.siteContactName}{report.siteContactPhone ? ` · ${report.siteContactPhone}` : ''}</span>}
+                {report.siteLat != null && report.siteLng != null && (
+                  <a className="report-coords-link" href={`https://www.openstreetmap.org/?mlat=${report.siteLat}&mlon=${report.siteLng}#map=15/${report.siteLat}/${report.siteLng}`} target="_blank" rel="noopener noreferrer">
+                    {report.siteLat.toFixed(5)}, {report.siteLng.toFixed(5)}
+                  </a>
+                )}
+              </div>
+            )}
             <div className="report-meta">
               <span>Inspector: {report.inspectorName}{report.inspectorCompany ? ` — ${report.inspectorCompany}` : ''}</span>
               <span>Date: {new Date(report.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>

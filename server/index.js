@@ -77,25 +77,33 @@ app.delete('/api/inspectors/:id', (req, res) => {
 });
 
 // ── Sites ──
+function mapSite(r) {
+  return {
+    id: r.id, name: r.name,
+    contactName: r.contact_name || '', contactPhone: r.contact_phone || '',
+    address: r.address || '',
+    lat: r.lat ?? null, lng: r.lng ?? null,
+  };
+}
 app.get('/api/sites', (req, res) => {
   const q = req.query.q;
   if (q) {
-    res.json(db.prepare("SELECT * FROM sites WHERE name LIKE ? ORDER BY name").all(`%${q}%`));
+    res.json(db.prepare("SELECT * FROM sites WHERE name LIKE ? OR address LIKE ? ORDER BY name").all(`%${q}%`, `%${q}%`).map(mapSite));
   } else {
-    res.json(db.prepare('SELECT * FROM sites ORDER BY name').all());
+    res.json(db.prepare('SELECT * FROM sites ORDER BY name').all().map(mapSite));
   }
 });
 app.post('/api/sites', (req, res) => {
-  const { name } = req.body;
+  const { name, contactName, contactPhone, address, lat, lng } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const id = `st-${uuid().slice(0, 8)}`;
-  db.prepare('INSERT INTO sites (id, name) VALUES (?, ?)').run(id, name.trim());
-  res.status(201).json({ id, name: name.trim() });
+  db.prepare('INSERT INTO sites (id, name, contact_name, contact_phone, address, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, name.trim(), contactName?.trim() || '', contactPhone?.trim() || '', address?.trim() || '', lat ?? null, lng ?? null);
+  res.status(201).json(mapSite(db.prepare('SELECT * FROM sites WHERE id = ?').get(id)));
 });
 app.patch('/api/sites/:id', (req, res) => {
-  const { name } = req.body;
+  const { name, contactName, contactPhone, address, lat, lng } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
-  db.prepare('UPDATE sites SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
+  db.prepare('UPDATE sites SET name = ?, contact_name = ?, contact_phone = ?, address = ?, lat = ?, lng = ? WHERE id = ?').run(name.trim(), contactName?.trim() || '', contactPhone?.trim() || '', address?.trim() || '', lat ?? null, lng ?? null, req.params.id);
   res.json({ ok: true });
 });
 app.delete('/api/sites/:id', (req, res) => {
@@ -179,10 +187,11 @@ app.get('/api/search', (req, res) => {
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
     LEFT JOIN companies c ON i.company_id = c.id
-    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ? OR ins.email LIKE ? OR ins.phone LIKE ? OR c.name LIKE ?
+    LEFT JOIN sites s ON s.name = i.site
+    WHERE i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ? OR ins.email LIKE ? OR ins.phone LIKE ? OR c.name LIKE ? OR s.address LIKE ? OR s.contact_name LIKE ?
     ORDER BY i.created_at DESC
     LIMIT 20
-  `).all(like, like, like, like, like, like, like);
+  `).all(like, like, like, like, like, like, like, like, like);
   res.json(rows.map(r => ({
     id: r.id,
     site: r.site,
@@ -376,10 +385,13 @@ app.get('/api/feed', (_req, res) => {
 app.get('/api/inspections/:id/report', (req, res) => {
   const insp = db.prepare(`
     SELECT i.*, ins.name as inspector_name, ins.email as inspector_email, ins.phone as inspector_phone,
-           c.name as inspector_company
+           c.name as inspector_company,
+           s.address as site_address, s.contact_name as site_contact_name, s.contact_phone as site_contact_phone,
+           s.lat as site_lat, s.lng as site_lng
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
     LEFT JOIN companies c ON ins.company_id = c.id
+    LEFT JOIN sites s ON s.name = i.site
     WHERE i.id = ?
   `).get(req.params.id);
   if (!insp) return res.status(404).json({ error: 'Not found' });
@@ -411,6 +423,11 @@ app.get('/api/inspections/:id/report', (req, res) => {
     inspectorEmail: insp.inspector_email || '',
     inspectorPhone: insp.inspector_phone || '',
     inspectorCompany: insp.inspector_company || '',
+    siteAddress: insp.site_address || '',
+    siteContactName: insp.site_contact_name || '',
+    siteContactPhone: insp.site_contact_phone || '',
+    siteLat: insp.site_lat ?? null,
+    siteLng: insp.site_lng ?? null,
     createdAt: insp.created_at,
     sections,
   });

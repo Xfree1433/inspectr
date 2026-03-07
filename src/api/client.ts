@@ -20,9 +20,9 @@ export const api = {
     request<{ ok: boolean }>(`/api/inspectors/${id}`, { method: 'DELETE' }),
 
   getSites: (q?: string) => request<import('../types').Site[]>(`/api/sites${q ? `?q=${encodeURIComponent(q)}` : ''}`),
-  createSite: (data: { name: string }) =>
+  createSite: (data: { name: string; contactName?: string; contactPhone?: string; address?: string; lat?: number | null; lng?: number | null }) =>
     request<import('../types').Site>('/api/sites', { method: 'POST', body: JSON.stringify(data) }),
-  updateSite: (id: string, data: { name: string }) =>
+  updateSite: (id: string, data: { name: string; contactName?: string; contactPhone?: string; address?: string; lat?: number | null; lng?: number | null }) =>
     request<{ ok: boolean }>(`/api/sites/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSite: (id: string) =>
     request<{ ok: boolean }>(`/api/sites/${id}`, { method: 'DELETE' }),
