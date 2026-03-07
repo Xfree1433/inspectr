@@ -174,6 +174,19 @@
 }
 .fail-note:hover { background: rgba(217,48,37,.15); }
 
+.crow-clickable { cursor: pointer; }
+.crow-clickable:hover { background: var(--surface2); }
+.crow-undo {
+  flex-shrink: 0;
+  color: var(--text-ghost);
+  opacity: 0;
+  transition: opacity .15s;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+}
+.crow-clickable:hover .crow-undo { opacity: 1; }
+@media (hover: none) { .crow-undo { opacity: .5; } }
 .crow-acts { display: flex; gap: 8px; flex-shrink: 0; margin-top: 1px; }
 .act {
   width: 44px; height: 44px;

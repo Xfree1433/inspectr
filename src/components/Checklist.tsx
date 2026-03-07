@@ -55,6 +55,12 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
     onOpenFailModal(text, itemId);
   };
 
+  const handleReset = async (itemId: string) => {
+    await api.updateCheckItem(itemId, { status: '' });
+    toast('Item reset to unchecked', 't-info', '↺');
+    loadChecklist(activeInspection.id);
+  };
+
   const handleSubmit = async () => {
     await api.submitReport(activeInspection.id);
     toast('Report submitted for supervisor approval', 't-pass', '✓');
@@ -116,7 +122,15 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
             <div key={group.name}>
               <div className="grp">{group.name}</div>
               {group.items.map(item => (
-                <div key={item.id} className={`crow${item.status ? ` ${item.status}` : ''}`}>
+                <div
+                  key={item.id}
+                  className={`crow${item.status ? ` ${item.status}` : ''}${item.status && !isLocked ? ' crow-clickable' : ''}`}
+                  onClick={() => {
+                    if (isLocked || !item.status) return;
+                    if (item.status === 'failed') onOpenFailModal(item.text, item.id);
+                    else handleReset(item.id);
+                  }}
+                >
                   <div className="cbox">
                     {item.status === 'done' && (
                       <svg viewBox="0 0 11 11"><polyline points="1.5,5.5 4.5,8.5 9.5,2" stroke="#0A0A09" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
@@ -131,8 +145,8 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                   <div className="crow-body">
                     <div className="crow-text">{item.text}</div>
                     {item.failNote && (
-                      <div className="fail-note" onClick={() => onOpenFailModal(item.text, item.id)}>
-                        ⚠ {item.failNote} — tap to edit
+                      <div className="fail-note">
+                        ⚠ {item.failNote}{!isLocked && ' — tap to edit'}
                       </div>
                     )}
                   </div>
@@ -147,6 +161,17 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
                       <button className="act act-f" title="Flag as failed — opens failure detail form" onClick={(e) => { e.stopPropagation(); handleFail(item.id, item.text); }}>
                         <svg width="12" height="12" viewBox="0 0 12 12"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" strokeWidth="1.8"/></svg>
                       </button>
+                    </div>
+                  )}
+                  {item.status && !isLocked && (
+                    <div className="crow-undo" title={item.status === 'failed' ? 'View/edit failure details' : 'Reset to unchecked'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        {item.status === 'failed' ? (
+                          <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>
+                        ) : (
+                          <><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></>
+                        )}
+                      </svg>
                     </div>
                   )}
                 </div>
