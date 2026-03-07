@@ -97,6 +97,35 @@ export function ReportModal({ open, onClose }: Props) {
     if (ctx) { ctx.clearRect(0, 0, 99999, 99999); setSigStarted(false); }
   };
 
+  const emailReport = () => {
+    if (!report) return;
+    const date = new Date(report.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const subject = `Inspection Report ${report.id} - ${report.site} (${report.type})`;
+    const lines: string[] = [
+      `INSPECTION REPORT`,
+      ``,
+      `ID: ${report.id}`,
+      `Site: ${report.site}`,
+      `Type: ${report.type}`,
+      `Inspector: ${report.inspectorName}`,
+      `Date: ${date}`,
+      `Score: ${report.score}/100`,
+      ``,
+      `--- RESULTS ---`,
+    ];
+    for (const section of report.sections) {
+      lines.push(``, `${section.name} (${section.score === 0 ? 'PENDING' : section.score + '%'})`);
+      for (const item of section.items) {
+        const tag = item.status === 'pass' ? 'PASS' : item.status === 'fail' ? 'FAIL' : item.status === 'na' ? 'N/A' : 'PENDING';
+        lines.push(`  [${tag}] ${item.text}`);
+        if (item.note) lines.push(`         ^ ${item.note}`);
+      }
+    }
+    lines.push(``, `---`, `Sent from INSPECTR Field Ops`);
+    const body = lines.join('\n');
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
+  };
+
   if (!open || !report) return null;
 
   const scoreColor = report.score >= 80 ? 'var(--lime)' : report.score >= 60 ? 'var(--warn)' : 'var(--fail)';
@@ -115,6 +144,7 @@ export function ReportModal({ open, onClose }: Props) {
           <div className="modal-title">Inspection Report</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button className="btn-ghost" style={{ padding: '8px 14px', fontSize: 12 }} onClick={() => toast('Report exported as PDF', 't-info', '↓')}>EXPORT PDF</button>
+            <button className="btn-ghost" style={{ padding: '8px 14px', fontSize: 12 }} onClick={emailReport}>EMAIL</button>
             <button className="modal-close" onClick={onClose}>
               <svg width="12" height="12" viewBox="0 0 12 12"><line x1="1" y1="1" x2="11" y2="11" stroke="currentColor" strokeWidth="1.8"/><line x1="11" y1="1" x2="1" y2="11" stroke="currentColor" strokeWidth="1.8"/></svg>
             </button>
