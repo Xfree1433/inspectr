@@ -78,6 +78,25 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
           <div className="pfr">{doneItems}/{totalItems}</div>
         </div>
       </div>
+      <div className="cl-actions">
+        <button className="btn-ghost" title="View logged failures and remediation status" onClick={() => setShowFailures(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Failures
+        </button>
+        {onOpenReport && (
+          <button className="btn-ghost" title="View the full inspection report" onClick={onOpenReport}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Report
+          </button>
+        )}
+        {!isLocked && (
+          <button className="btn-ghost" title="Flag this inspection for supervisor review" onClick={() => toast('Inspection flagged for review', 't-warn', '⚑')}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            Flag
+          </button>
+        )}
+        {!isLocked && <span className="auto-saved-badge" title="Changes are saved automatically as you work">AUTO-SAVED ✓</span>}
+      </div>
       {isLocked ? (
         <div className="cl-locked-banner">
           This inspection has been submitted and is now read-only.
@@ -135,13 +154,11 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
             </div>
           ))
         )}
-        <div className="sub-bar">
-          <button className="btn-ghost" title="View logged failures" onClick={() => setShowFailures(true)}>FAILURES</button>
-          {!isLocked && <button className="btn-ghost" title="Flag this inspection for supervisor review" onClick={() => toast('Inspection flagged for review', 't-warn', '⚑')}>FLAG</button>}
-          {!isLocked && <span className="auto-saved-badge" title="Changes are saved automatically as you work">AUTO-SAVED ✓</span>}
-          {onOpenReport && <button className="btn-ghost" title="View the full inspection report" onClick={onOpenReport}>VIEW REPORT</button>}
-          {!isLocked && <button className="btn-lime" style={{ flex: 2 }} title="Submit completed inspection for approval" onClick={handleSubmit}>SUBMIT REPORT</button>}
-        </div>
+        {!isLocked && (
+          <div className="sub-bar">
+            <button type="button" className="btn-lime sub-bar-submit" title="Submit completed inspection for approval" onClick={handleSubmit}>SUBMIT REPORT</button>
+          </div>
+        )}
       </div>
       <FailureListModal
         open={showFailures}

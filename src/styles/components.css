@@ -99,7 +99,25 @@
 .ic-time { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500; color: var(--text-ghost); }
 
 /* ══ CHECKLIST ══ */
-.cl-hdr { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 16px 12px; position: sticky; top: 0; z-index: 10; }
+.cl-hdr { background: var(--surface); border-bottom: none; padding: 14px 16px 12px; position: sticky; top: 0; z-index: 10; }
+.cl-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.cl-actions .btn-ghost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 8px 14px;
+  min-height: 44px;
+}
+.cl-actions .auto-saved-badge { margin-left: auto; }
 .cl-site { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: .5px; }
 .cl-meta { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cl-prog { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
@@ -183,6 +201,7 @@
   display: flex;
   gap: 10px;
 }
+.sub-bar-submit { flex: 1; }
 .cl-scroll { flex: 1; overflow-y: auto; }
 .cl-locked-banner {
   font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
