@@ -52,7 +52,7 @@ export const api = {
     const qs = params.toString();
     return request<import('../types').Inspection[]>(`/api/inspections${qs ? `?${qs}` : ''}`);
   },
-  searchInspections: (q: string) => request<import('../types').Inspection[]>(`/api/search?q=${encodeURIComponent(q)}`),
+  search: (q: string) => request<{ inspections: import('../types').Inspection[]; documents: import('../types').Document[] }>(`/api/search?q=${encodeURIComponent(q)}`),
   createInspection: (data: { site: string; type: string; inspectorId: string; notes?: string; templateId?: string; companyId?: string }) =>
     request<{ id: string }>('/api/inspections', { method: 'POST', body: JSON.stringify(data) }),
   deleteInspection: (id: string) =>
@@ -101,6 +101,6 @@ export const api = {
   deleteDocument: (id: string) =>
     request<{ ok: boolean }>(`/api/documents/${id}`, { method: 'DELETE' }),
 
-  getReport: (inspectionId: string) => request<any>(`/api/inspections/${inspectionId}/report`),
+  getReport: (inspectionId: string) => request<import('../types').ReportGroup[]>(`/api/inspections/${inspectionId}/report`),
   submitReport: (inspectionId: string) => request<{ status: string }>(`/api/inspections/${inspectionId}/submit`, { method: 'POST' }),
 };

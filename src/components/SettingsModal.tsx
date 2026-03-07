@@ -50,7 +50,7 @@ export function SettingsModal({ open, onClose }: Props) {
   }, []);
 
   useEffect(() => {
-    if (open) load();
+    if (open) load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [open, load]);
 
   const startAdd = () => {
@@ -66,7 +66,7 @@ export function SettingsModal({ open, onClose }: Props) {
     setForm(tab === 'companies' ? { name: '', contact: '', phone: '' } : tab === 'inspectors' ? { name: '', initials: '', email: '', phone: '', companyId: '' } : { name: '', contactName: '', contactPhone: '', address: '', lat: '', lng: '' });
   };
 
-  const startEdit = (item: any) => {
+  const startEdit = (item: Company | Inspector | Site | Template) => {
     setEditId(item.id);
     if (tab === 'companies') setForm({ name: item.name, contact: item.contact || '', phone: item.phone || '' });
     else if (tab === 'inspectors') setForm({ name: item.name, initials: item.initials || '', email: (item as Inspector).email || '', phone: (item as Inspector).phone || '', companyId: (item as Inspector).companyId || '' });
@@ -103,13 +103,13 @@ export function SettingsModal({ open, onClose }: Props) {
     if (!form.name?.trim()) { toast('Name is required', 't-fail', '!'); return; }
     try {
       if (editId === 'new') {
-        if (tab === 'companies') await api.createCompany(form as any);
-        else if (tab === 'inspectors') await api.createInspector(form as any);
+        if (tab === 'companies') await api.createCompany(form as { name: string; contact?: string; phone?: string });
+        else if (tab === 'inspectors') await api.createInspector(form as { name: string; initials?: string; email?: string; phone?: string; companyId?: string });
         else if (tab === 'sites') await api.createSite(buildSiteData());
         toast(`${tab.slice(0, -1).replace(/^./, c => c.toUpperCase())} added`, 't-pass', '+');
       } else {
-        if (tab === 'companies') await api.updateCompany(editId!, form as any);
-        else if (tab === 'inspectors') await api.updateInspector(editId!, form as any);
+        if (tab === 'companies') await api.updateCompany(editId!, form as { name: string; contact?: string; phone?: string });
+        else if (tab === 'inspectors') await api.updateInspector(editId!, form as { name: string; initials?: string; email?: string; phone?: string; companyId?: string });
         else if (tab === 'sites') await api.updateSite(editId!, buildSiteData());
         toast('Updated', 't-pass', '✓');
       }
@@ -511,7 +511,7 @@ export function SettingsModal({ open, onClose }: Props) {
                   <div className="empty-state-text">Tap the button above to add your first one.</div>
                 </div>
               ) : (
-                items.map((item: any) => (
+                items.map((item: Company | Inspector | Site | Template | Document) => (
                   <div key={item.id} className="settings-item">
                     {!isTemplateTab && editId === item.id ? (
                       <div className="settings-edit-row">

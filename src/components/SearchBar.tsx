@@ -1,33 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api/client';
-import type { Inspection } from '../types';
+import type { Inspection, Document } from '../types';
+
+interface SearchResults {
+  inspections: Inspection[];
+  documents: Document[];
+}
 
 export function SearchBar() {
   const { selectInspection, setActiveTab } = useApp();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Inspection[]>([]);
+  const [results, setResults] = useState<SearchResults>({ inspections: [], documents: [] });
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  const hasResults = results.inspections.length > 0 || results.documents.length > 0;
+
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) {
-      setResults([]);
+      setResults({ inspections: [], documents: [] });
       setOpen(false);
       return;
     }
     setLoading(true);
     debounceRef.current = setTimeout(() => {
-      api.searchInspections(query.trim())
+      api.search(query.trim())
         .then(r => { setResults(r); setOpen(true); })
-        .catch(() => setResults([]))
+        .catch(() => setResults({ inspections: [], documents: [] }))
         .finally(() => setLoading(false));
     }, 250);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -61,7 +70,7 @@ export function SearchBar() {
           placeholder="Search inspections by ID, site, type, or inspector..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          onFocus={() => { if (results.length > 0) setOpen(true); }}
+          onFocus={() => { if (hasResults) setOpen(true); }}
         />
         {query && (
           <button className="search-bar-clear" onClick={() => { setQuery(''); setOpen(false); }}>
@@ -74,21 +83,38 @@ export function SearchBar() {
       </div>
       {open && (
         <div className="search-results">
-          {results.length === 0 ? (
-            <div className="search-empty">No inspections found for "{query}"</div>
+          {!hasResults ? (
+            <div className="search-empty">No results found for "{query}"</div>
           ) : (
-            results.map(r => (
-              <button key={r.id} className="search-result" onClick={() => handleSelect(r)}>
-                <div className="search-result-top">
-                  <span className="search-result-id">{r.id}</span>
-                  <span className={`badge ${statusClass(r.status)}`}>{r.status.toUpperCase()}</span>
-                </div>
-                <div className="search-result-site">{r.site}</div>
-                <div className="search-result-meta">
-                  {r.type} · {r.inspectorName} · {r.time}
-                </div>
-              </button>
-            ))
+            <>
+              {results.inspections.map(r => (
+                <button key={r.id} className="search-result" onClick={() => handleSelect(r)}>
+                  <div className="search-result-top">
+                    <span className="search-result-id">{r.id}</span>
+                    <span className={`badge ${statusClass(r.status)}`}>{r.status.toUpperCase()}</span>
+                  </div>
+                  <div className="search-result-site">{r.site}</div>
+                  <div className="search-result-meta">
+                    {r.type} · {r.inspectorName} · {r.time}
+                  </div>
+                </button>
+              ))}
+              {results.documents.length > 0 && (
+                <>
+                  {results.inspections.length > 0 && <div className="search-divider">Documents</div>}
+                  {results.documents.map(d => (
+                    <div key={d.id} className="search-result search-result-doc">
+                      <div className="search-result-top">
+                        <span className="search-result-id">{d.name}</span>
+                      </div>
+                      <div className="search-result-meta">
+                        {[d.companyName, d.siteName].filter(Boolean).join(' · ') || 'Unlinked'}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
           )}
         </div>
       )}

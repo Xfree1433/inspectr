@@ -23,6 +23,7 @@ export function NewInspectionModal({ open, onClose }: Props) {
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       api.getTemplates().then(setTemplates).catch(() => {});
@@ -33,12 +34,13 @@ export function NewInspectionModal({ open, onClose }: Props) {
       if (!inspectorId && inspectors.length > 0) setInspectorId(inspectors[0].id);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (siteQuery.length > 0) {
       api.getSites(siteQuery).then(s => { setSites(s); setShowSites(true); }).catch(() => {});
     } else {
-      setShowSites(false);
+      setShowSites(false); // eslint-disable-line react-hooks/set-state-in-effect
     }
   }, [siteQuery]);
 

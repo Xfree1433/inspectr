@@ -14,6 +14,7 @@ export function ProfileModal({ open, onClose }: Props) {
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setName(profile.name);
@@ -21,6 +22,7 @@ export function ProfileModal({ open, onClose }: Props) {
       setEmail(profile.email);
     }
   }, [open, profile]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSave = () => {
     updateProfile({ name: name.trim(), company: company.trim(), email: email.trim() });

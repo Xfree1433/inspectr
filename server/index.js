@@ -249,6 +249,7 @@ app.get('/api/search', (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q) return res.json([]);
   const like = `%${q}%`;
+  // Search inspections
   const rows = db.prepare(`
     SELECT i.*, ins.initials as inspector_initials, ins.name as inspector_name, c.name as company_name
     FROM inspections i
@@ -259,7 +260,19 @@ app.get('/api/search', (req, res) => {
     ORDER BY i.created_at DESC
     LIMIT 20
   `).all(like, like, like, like, like, like, like, like, like);
-  res.json(rows.map(r => ({
+
+  // Search documents
+  const docs = db.prepare(`
+    SELECT d.id, d.name, d.file_type, d.company_id, d.site_id, d.created_at, c.name as company_name, s.name as site_name
+    FROM documents d
+    LEFT JOIN companies c ON d.company_id = c.id
+    LEFT JOIN sites s ON d.site_id = s.id
+    WHERE d.name LIKE ? OR d.file_type LIKE ? OR c.name LIKE ? OR s.name LIKE ?
+    ORDER BY d.created_at DESC
+    LIMIT 10
+  `).all(like, like, like, like);
+
+  res.json({ inspections: rows.map(r => ({
     id: r.id,
     site: r.site,
     type: r.type,
@@ -272,7 +285,16 @@ app.get('/api/search', (req, res) => {
     companyName: r.company_name || '',
     createdAt: r.created_at,
     time: formatTimeAgo(r.created_at),
-  })));
+  })), documents: docs.map(d => ({
+    id: d.id,
+    name: d.name,
+    fileType: d.file_type,
+    companyId: d.company_id || '',
+    companyName: d.company_name || '',
+    siteId: d.site_id || '',
+    siteName: d.site_name || '',
+    createdAt: d.created_at,
+  })) });
 });
 
 // ── Stats ──
