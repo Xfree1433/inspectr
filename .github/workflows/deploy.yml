@@ -1,0 +1,21 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to pf9-apps
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PF9_APPS_HOST }}
+          username: ${{ secrets.PF9_APPS_USER }}
+          key: ${{ secrets.PF9_APPS_SSH_KEY }}
+          script: |
+            cd /opt/pf9-apps/inspectr
+            git pull origin main
+            cd /opt/pf9-apps
+            docker compose build inspectr
+            docker compose up -d inspectr
