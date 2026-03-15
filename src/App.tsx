@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProfileProvider } from './context/ProfileContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { StatsBar } from './components/StatsBar';
 import { InspectionList } from './components/InspectionList';
@@ -17,6 +18,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { DemoBanner } from './components/DemoBanner';
 import { SearchBar } from './components/SearchBar';
+import { LoginPage } from './components/LoginPage';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -94,14 +96,51 @@ function AppInner() {
   );
 }
 
+function AuthGate() {
+  const { user, loading, demoLogin } = useAuth();
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  useEffect(() => {
+    // Auto-login for /demo URL
+    if (window.location.pathname === '/demo' && !user && !loading) {
+      setDemoLoading(true);
+      demoLogin().then(() => {
+        window.history.replaceState({}, '', '/');
+      }).catch(() => {
+        setDemoLoading(false);
+      });
+    }
+  }, [user, loading, demoLogin]);
+
+  if (loading || demoLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #e5e7eb', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.6s linear infinite', margin: '0 auto 1rem' }} />
+          <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Loading...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <LoginPage />;
+
+  return (
+    <ProfileProvider>
+      <AppProvider>
+        <AppInner />
+      </AppProvider>
+    </ProfileProvider>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
-      <ProfileProvider>
-        <AppProvider>
-          <AppInner />
-        </AppProvider>
-      </ProfileProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

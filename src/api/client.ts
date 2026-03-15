@@ -1,13 +1,59 @@
 const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3001');
 
+function getSessionId(): string | null {
+  return localStorage.getItem('inspectr_session_id');
+}
+
+export function setSessionId(id: string | null) {
+  if (id) {
+    localStorage.setItem('inspectr_session_id', id);
+  } else {
+    localStorage.removeItem('inspectr_session_id');
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const sessionId = getSessionId();
+  if (sessionId) headers['x-session-id'] = sessionId;
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   });
+  if (res.status === 401) {
+    setSessionId(null);
+    window.location.href = '/login';
+    throw new Error('Session expired');
+  }
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  orgId: string;
+}
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    request<{ sessionId: string; user: AuthUser }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  demoLogin: () =>
+    request<{ sessionId: string; user: AuthUser }>('/api/auth/demo', { method: 'POST' }),
+  register: (data: { email: string; password: string; name: string; companyName: string }) =>
+    request<{ sessionId: string; user: AuthUser }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getSession: () => request<{ user: AuthUser | null }>('/api/auth/session'),
+  logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+};
 
 export const api = {
   getStats: () => request<import('../types').Stats>('/api/stats'),
@@ -72,19 +118,16 @@ export const api = {
 
   getFeed: () => request<import('../types').FeedEvent[]>('/api/feed'),
 
-  // Check item photos
   addCheckItemPhoto: (checkItemId: string, dataUrl: string) =>
     request<{ id: string }>(`/api/check-items/${checkItemId}/photos`, { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   deleteCheckItemPhoto: (photoId: string) =>
     request<{ ok: boolean }>(`/api/check-item-photos/${photoId}`, { method: 'DELETE' }),
 
-  // Template item photos
   addTemplateItemPhoto: (templateItemId: number, dataUrl: string) =>
     request<{ id: string }>(`/api/template-items/${templateItemId}/photos`, { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   deleteTemplateItemPhoto: (photoId: string) =>
     request<{ ok: boolean }>(`/api/template-item-photos/${photoId}`, { method: 'DELETE' }),
 
-  // Documents
   getDocuments: (companyId?: string, siteId?: string) => {
     const params = new URLSearchParams();
     if (companyId) params.set('companyId', companyId);
