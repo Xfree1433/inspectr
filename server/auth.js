@@ -82,7 +82,7 @@ export function authMiddleware(db) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const session = db.prepare('SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime("now")').get(sessionId);
+    const session = db.prepare(`SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime('now')`).get(sessionId);
     if (!session) {
       return res.status(401).json({ error: 'Session expired' });
     }
@@ -140,7 +140,7 @@ export function setupAuthRoutes(app, db) {
     const sessionId = req.headers['x-session-id'];
     if (!sessionId) return res.json({ user: null });
 
-    const session = db.prepare('SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime("now")').get(sessionId);
+    const session = db.prepare(`SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime('now')`).get(sessionId);
     if (!session) return res.json({ user: null });
 
     res.json({
