@@ -30,3 +30,4 @@ server/*.db-wal
 
 # Environment
 .env
+memory.md
