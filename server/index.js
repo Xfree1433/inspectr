@@ -1,5 +1,7 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { v4 as uuid } from 'uuid';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -15,8 +17,31 @@ const __dirname = dirname(__filename);
 const distPath = join(__dirname, '..', 'dist');
 
 const app = express();
-app.use(cors());
+
+// CORS: production must whitelist the frontend origin via ALLOWED_ORIGIN.
+// If unset in production, cross-origin requests are blocked outright.
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.ALLOWED_ORIGIN) {
+    console.warn('[INSPECTR] ALLOWED_ORIGIN not set in production — all cross-origin requests will be blocked.');
+  }
+  app.use(cors({ origin: process.env.ALLOWED_ORIGIN || false, credentials: true }));
+} else {
+  app.use(cors());
+}
+
 app.use(express.json({ limit: '10mb' }));
+
+// Rate limit auth endpoints to slow brute-force attempts.
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Try again in a few minutes.' },
+}));
+
+// Health check for load balancers and uptime probes.
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Auth routes (login, register, demo, session, logout)
 setupAuthRoutes(app, db);
@@ -632,8 +657,11 @@ function formatTimeAgo(dateStr) {
 
 // ── Demo Reset ──
 app.post('/api/reset-demo', (req, res) => {
+  // Fail closed: require RESET_SECRET to be set AND header to match.
+  // Without this, every smoke-test 500 below masked the fact that anyone
+  // on the network could wipe all data with a single POST.
   const secret = process.env.RESET_SECRET;
-  if (secret && req.headers['x-reset-secret'] !== secret) {
+  if (!secret || req.headers['x-reset-secret'] !== secret) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
