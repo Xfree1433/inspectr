@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import posthog from 'posthog-js';
 import { authApi, setSessionId, type AuthUser } from '../api/client';
 
 interface AuthContextType {
@@ -22,6 +23,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+
+  // Analytics: stitch this browser to the known user by email (matches storefront identity).
+  useEffect(() => {
+    try {
+      if (user?.email) {
+        posthog.identify(user.email, { email: user.email, name: user.name, signup_app: 'inspectr' });
+      }
+    } catch { /* no-op */ }
+  }, [user]);
 
   const login = async (email: string, password: string) => {
     const res = await authApi.login(email, password);

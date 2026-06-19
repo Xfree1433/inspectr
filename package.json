@@ -20,6 +20,8 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-session": "^1.19.0",
+    "posthog-js": "^1.160.0",
+    "posthog-node": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",

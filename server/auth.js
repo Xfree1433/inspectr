@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
+import { captureServer } from './posthog.js';
 
 export function setupAuth(db) {
   // Create auth tables
@@ -114,6 +115,9 @@ export function setupAuthRoutes(app, db) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     db.prepare('INSERT INTO sessions (id, user_id, org_id, expires_at) VALUES (?, ?, ?, ?)').run(sessionId, user.id, user.org_id, expiresAt);
 
+    // Analytics: login.
+    captureServer('app_login', user.email, {}, { account: user.org_id });
+
     res.json({
       sessionId,
       user: { id: user.id, name: user.name, email: user.email, role: user.role, orgId: user.org_id },
@@ -179,6 +183,13 @@ export function setupAuthRoutes(app, db) {
     const sessionId = uuid();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     db.prepare('INSERT INTO sessions (id, user_id, org_id, expires_at) VALUES (?, ?, ?, ?)').run(sessionId, userId, orgId, expiresAt);
+
+    // Analytics: signup. distinctId = email to stitch with the storefront journey.
+    const normEmail = email.toLowerCase().trim();
+    captureServer('app_signup', normEmail, {
+      organization: companyName.trim(),
+      $set: { email: normEmail, name: name.trim(), signup_app: 'inspectr' },
+    }, { account: orgId });
 
     res.status(201).json({
       sessionId,

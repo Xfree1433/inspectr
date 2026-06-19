@@ -8,6 +8,7 @@ import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import db from './db.js';
 import { setupAuth, authMiddleware, setupAuthRoutes } from './auth.js';
+import { captureServer } from './posthog.js';
 
 // Initialize auth tables and seed demo data
 setupAuth(db);
@@ -40,8 +41,16 @@ app.use('/api/auth/login', rateLimit({
   message: { error: 'Too many login attempts. Try again in a few minutes.' },
 }));
 
-// Health check for load balancers and uptime probes.
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+// DB-touching health check. Returns 503 if the SQLite handle can't satisfy SELECT 1.
+app.get('/api/health', (req, res) => {
+  try {
+    db.prepare('SELECT 1').get();
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
+    res.json({ status: 'ok', database: 'connected', migrations: { system: 'manual', count: tables.length, latest: null } });
+  } catch (e) {
+    res.status(503).json({ status: 'degraded', database: 'error', error: String(e).slice(0, 200) });
+  }
+});
 
 // Auth routes (login, register, demo, session, logout)
 setupAuthRoutes(app, db);
@@ -619,6 +628,13 @@ app.post('/api/inspections/:id/submit', (req, res) => {
 
   const statusLabel = newStatus === 'pass' ? 'PASSED' : 'FAILED';
   addFeedEvent(newStatus === 'pass' ? 'pass' : 'fail', req.params.id, `Inspection ${statusLabel}`, `Score ${insp.score}/100`, req.orgId);
+
+  // Analytics: submitting an inspection is INSPECTR's core action.
+  // Activation = first occurrence (derived in PostHog).
+  const actorId = req.user?.email || req.orgId;
+  if (actorId) {
+    captureServer('core_action_performed', actorId, { action: 'inspection_submitted', result: newStatus }, { account: req.orgId });
+  }
 
   res.json({ status: newStatus });
 });
