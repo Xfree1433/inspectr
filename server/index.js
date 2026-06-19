@@ -80,6 +80,29 @@ function updateTemplateItemCount(templateId) {
   db.prepare('UPDATE templates SET item_count = ? WHERE id = ?').run(cnt.c, templateId);
 }
 
+// ── Multi-tenant ownership guards ──
+// Child tables (template_groups/items/photos, check_groups/items/photos,
+// failures/failure_photos) carry NO org_id — they're reachable only via an
+// org-scoped parent. These resolve the owning org through the parent chain so
+// every :id detail/child/write route can reject cross-org access. Top-level
+// tables (inspections/templates/documents/inspectors/companies/sites) are
+// guarded with a direct `AND org_id = ?` predicate instead.
+function inspectionOwned(id, orgId) {
+  return !!db.prepare('SELECT 1 FROM inspections WHERE id = ? AND org_id = ?').get(id, orgId);
+}
+function checkItemOrg(itemId) {
+  return db.prepare('SELECT i.org_id AS orgId, cg.inspection_id AS inspectionId FROM check_items ci JOIN check_groups cg ON ci.group_id = cg.id JOIN inspections i ON cg.inspection_id = i.id WHERE ci.id = ?').get(itemId);
+}
+function checkItemPhotoOrg(photoId) {
+  return db.prepare('SELECT i.org_id AS orgId FROM check_item_photos cip JOIN check_items ci ON cip.check_item_id = ci.id JOIN check_groups cg ON ci.group_id = cg.id JOIN inspections i ON cg.inspection_id = i.id WHERE cip.id = ?').get(photoId);
+}
+function templateItemOrg(itemId) {
+  return db.prepare('SELECT t.org_id AS orgId FROM template_items ti JOIN template_groups tg ON ti.group_id = tg.id JOIN templates t ON tg.template_id = t.id WHERE ti.id = ?').get(itemId);
+}
+function templateItemPhotoOrg(photoId) {
+  return db.prepare('SELECT t.org_id AS orgId FROM template_item_photos tip JOIN template_items ti ON tip.template_item_id = ti.id JOIN template_groups tg ON ti.group_id = tg.id JOIN templates t ON tg.template_id = t.id WHERE tip.id = ?').get(photoId);
+}
+
 // ── Companies ──
 app.get('/api/companies', (req, res) => {
   res.json(db.prepare('SELECT * FROM companies WHERE org_id = ? ORDER BY name').all(req.orgId));
@@ -176,7 +199,7 @@ app.get('/api/templates', (req, res) => {
 });
 
 app.get('/api/templates/:id', (req, res) => {
-  const tmpl = db.prepare('SELECT id, icon, name, item_count as count FROM templates WHERE id = ?').get(req.params.id);
+  const tmpl = db.prepare('SELECT id, icon, name, item_count as count FROM templates WHERE id = ? AND org_id = ?').get(req.params.id, req.orgId);
   if (!tmpl) return res.status(404).json({ error: 'Not found' });
   const groups = db.prepare('SELECT * FROM template_groups WHERE template_id = ? ORDER BY sort_order').all(req.params.id);
   const result = {
@@ -215,7 +238,7 @@ app.post('/api/templates', (req, res) => {
 
 app.patch('/api/templates/:id', (req, res) => {
   const { name, icon, groups } = req.body;
-  const tmpl = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
+  const tmpl = db.prepare('SELECT * FROM templates WHERE id = ? AND org_id = ?').get(req.params.id, req.orgId);
   if (!tmpl) return res.status(404).json({ error: 'Not found' });
   if (name !== undefined) db.prepare('UPDATE templates SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
   if (icon !== undefined) db.prepare('UPDATE templates SET icon = ? WHERE id = ?').run(icon, req.params.id);
@@ -235,12 +258,14 @@ app.patch('/api/templates/:id', (req, res) => {
 });
 
 app.delete('/api/templates/:id', (req, res) => {
-  db.prepare('DELETE FROM templates WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM templates WHERE id = ? AND org_id = ?').run(req.params.id, req.orgId);
   res.json({ ok: true });
 });
 
 // ── Template Item Photos ──
 app.get('/api/template-items/:id/photos', (req, res) => {
+  const owner = templateItemOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   const photos = db.prepare('SELECT id, data_url as dataUrl FROM template_item_photos WHERE template_item_id = ?').all(req.params.id);
   res.json(photos);
 });
@@ -248,12 +273,16 @@ app.get('/api/template-items/:id/photos', (req, res) => {
 app.post('/api/template-items/:id/photos', (req, res) => {
   const { dataUrl } = req.body;
   if (!dataUrl) return res.status(400).json({ error: 'dataUrl is required' });
+  const owner = templateItemOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   const id = uuid();
   db.prepare('INSERT INTO template_item_photos (id, template_item_id, data_url) VALUES (?, ?, ?)').run(id, req.params.id, dataUrl);
   res.status(201).json({ id });
 });
 
 app.delete('/api/template-item-photos/:id', (req, res) => {
+  const owner = templateItemPhotoOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM template_item_photos WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
@@ -288,18 +317,20 @@ app.post('/api/documents', (req, res) => {
 app.patch('/api/documents/:id', (req, res) => {
   const { name, companyId, siteId } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
-  db.prepare('UPDATE documents SET name = ?, company_id = ?, site_id = ? WHERE id = ?').run(name.trim(), companyId || '', siteId || '', req.params.id);
+  const info = db.prepare('UPDATE documents SET name = ?, company_id = ?, site_id = ? WHERE id = ? AND org_id = ?').run(name.trim(), companyId || '', siteId || '', req.params.id, req.orgId);
+  if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
 app.get('/api/documents/:id/download', (req, res) => {
-  const doc = db.prepare('SELECT data_url, name, file_type FROM documents WHERE id = ?').get(req.params.id);
+  const doc = db.prepare('SELECT data_url, name, file_type FROM documents WHERE id = ? AND org_id = ?').get(req.params.id, req.orgId);
   if (!doc) return res.status(404).json({ error: 'Not found' });
   res.json({ dataUrl: doc.data_url, name: doc.name, fileType: doc.file_type });
 });
 
 app.delete('/api/documents/:id', (req, res) => {
-  db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
+  const info = db.prepare('DELETE FROM documents WHERE id = ? AND org_id = ?').run(req.params.id, req.orgId);
+  if (info.changes === 0) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
@@ -411,6 +442,18 @@ app.get('/api/inspections', (req, res) => {
 
 app.post('/api/inspections', (req, res) => {
   const { site, type, inspectorId, notes, templateId, companyId } = req.body;
+  // Reject FK-injection: every referenced inspector/company/template must
+  // belong to the caller's org, else a user could attach (and copy reference
+  // photos from) another tenant's records.
+  if (inspectorId && !db.prepare('SELECT 1 FROM inspectors WHERE id = ? AND org_id = ?').get(inspectorId, req.orgId)) {
+    return res.status(404).json({ error: 'Inspector not found' });
+  }
+  if (companyId && !db.prepare('SELECT 1 FROM companies WHERE id = ? AND org_id = ?').get(companyId, req.orgId)) {
+    return res.status(404).json({ error: 'Company not found' });
+  }
+  if (templateId && !db.prepare('SELECT 1 FROM templates WHERE id = ? AND org_id = ?').get(templateId, req.orgId)) {
+    return res.status(404).json({ error: 'Template not found' });
+  }
   const id = `INS-${String(db.prepare('SELECT COUNT(*) as c FROM inspections WHERE org_id = ?').get(req.orgId).c + 892).padStart(4, '0')}`;
   db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, company_id, notes, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, companyId || null, notes || '', req.orgId);
 
@@ -448,6 +491,7 @@ app.delete('/api/inspections/:id', (req, res) => {
 
 // ── Checklist ──
 app.get('/api/inspections/:id/checklist', (req, res) => {
+  if (!inspectionOwned(req.params.id, req.orgId)) return res.status(404).json({ error: 'Not found' });
   const groups = db.prepare('SELECT * FROM check_groups WHERE inspection_id = ? ORDER BY sort_order').all(req.params.id);
   const result = groups.map(g => ({
     name: g.name,
@@ -463,19 +507,20 @@ app.patch('/api/check-items/:id', (req, res) => {
   const { status, failNote } = req.body;
   const validStatuses = ['', 'done', 'failed', 'na'];
   if (status !== undefined && !validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  const owner = checkItemOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   if (status !== undefined) db.prepare('UPDATE check_items SET status = ? WHERE id = ?').run(status, req.params.id);
   if (failNote !== undefined) db.prepare('UPDATE check_items SET fail_note = ? WHERE id = ?').run(failNote, req.params.id);
 
   // Recalculate parent inspection score
-  const item = db.prepare('SELECT ci.*, cg.inspection_id FROM check_items ci JOIN check_groups cg ON ci.group_id = cg.id WHERE ci.id = ?').get(req.params.id);
-  if (item) {
-    recalcScore(item.inspection_id);
-  }
+  recalcScore(owner.inspectionId);
   res.json({ ok: true });
 });
 
 // ── Check Item Photos ──
 app.get('/api/check-items/:id/photos', (req, res) => {
+  const owner = checkItemOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   const photos = db.prepare('SELECT id, data_url as dataUrl, is_reference as isReference FROM check_item_photos WHERE check_item_id = ? ORDER BY created_at').all(req.params.id);
   res.json(photos.map(p => ({ ...p, isReference: !!p.isReference })));
 });
@@ -483,6 +528,8 @@ app.get('/api/check-items/:id/photos', (req, res) => {
 app.post('/api/check-items/:id/photos', (req, res) => {
   const { dataUrl } = req.body;
   if (!dataUrl) return res.status(400).json({ error: 'dataUrl is required' });
+  const owner = checkItemOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   const id = uuid();
   db.prepare('INSERT INTO check_item_photos (id, check_item_id, data_url) VALUES (?, ?, ?)').run(id, req.params.id, dataUrl);
 
@@ -494,6 +541,8 @@ app.post('/api/check-items/:id/photos', (req, res) => {
 });
 
 app.delete('/api/check-item-photos/:id', (req, res) => {
+  const owner = checkItemPhotoOrg(req.params.id);
+  if (!owner || owner.orgId !== req.orgId) return res.status(404).json({ error: 'Not found' });
   db.prepare('DELETE FROM check_item_photos WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
@@ -501,6 +550,19 @@ app.delete('/api/check-item-photos/:id', (req, res) => {
 // ── Failures ──
 app.post('/api/failures', (req, res) => {
   const { inspectionId, checkItemId, title, severity, description, assigneeId, dueDate, referenceStandard, photos } = req.body;
+  // Reject FK-injection: the inspection must be the caller's, the check item
+  // (if any) must belong to that same inspection, and the assignee must be an
+  // inspector in the caller's org.
+  if (!inspectionOwned(inspectionId, req.orgId)) return res.status(404).json({ error: 'Inspection not found' });
+  if (checkItemId) {
+    const ci = checkItemOrg(checkItemId);
+    if (!ci || ci.orgId !== req.orgId || ci.inspectionId !== inspectionId) {
+      return res.status(404).json({ error: 'Check item not found' });
+    }
+  }
+  if (assigneeId && !db.prepare('SELECT 1 FROM inspectors WHERE id = ? AND org_id = ?').get(assigneeId, req.orgId)) {
+    return res.status(404).json({ error: 'Assignee not found' });
+  }
   const id = uuid();
   db.prepare('INSERT INTO failures (id, inspection_id, check_item_id, title, severity, description, assignee_id, due_date, reference_standard) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, inspectionId, checkItemId, title, severity || 'low', description || '', assigneeId || null, dueDate || null, referenceStandard || '');
 
@@ -517,7 +579,7 @@ app.patch('/api/failures/:id', (req, res) => {
   const { remediationStatus } = req.body;
   const validStatuses = ['open', 'in-progress', 'verified', 'closed'];
   if (!validStatuses.includes(remediationStatus)) return res.status(400).json({ error: 'Invalid remediation status' });
-  const failure = db.prepare('SELECT * FROM failures WHERE id = ?').get(req.params.id);
+  const failure = db.prepare('SELECT f.* FROM failures f JOIN inspections i ON f.inspection_id = i.id WHERE f.id = ? AND i.org_id = ?').get(req.params.id, req.orgId);
   if (!failure) return res.status(404).json({ error: 'Not found' });
   db.prepare('UPDATE failures SET remediation_status = ? WHERE id = ?').run(remediationStatus, req.params.id);
   addFeedEvent('warn', failure.inspection_id, `Failure ${remediationStatus}`, failure.title, req.orgId);
@@ -525,6 +587,7 @@ app.patch('/api/failures/:id', (req, res) => {
 });
 
 app.get('/api/inspections/:id/failures', (req, res) => {
+  if (!inspectionOwned(req.params.id, req.orgId)) return res.status(404).json({ error: 'Not found' });
   const rows = db.prepare(`
     SELECT f.*, ins.name as assignee_name, ins.initials as assignee_initials
     FROM failures f
@@ -575,8 +638,8 @@ app.get('/api/inspections/:id/report', (req, res) => {
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
     LEFT JOIN companies c ON ins.company_id = c.id
     LEFT JOIN sites s ON s.name = i.site
-    WHERE i.id = ?
-  `).get(req.params.id);
+    WHERE i.id = ? AND i.org_id = ?
+  `).get(req.params.id, req.orgId);
   if (!insp) return res.status(404).json({ error: 'Not found' });
 
   const groups = db.prepare('SELECT * FROM check_groups WHERE inspection_id = ? ORDER BY sort_order').all(req.params.id);
@@ -618,7 +681,7 @@ app.get('/api/inspections/:id/report', (req, res) => {
 
 // ── Submit report ──
 app.post('/api/inspections/:id/submit', (req, res) => {
-  const insp = db.prepare('SELECT * FROM inspections WHERE id = ?').get(req.params.id);
+  const insp = db.prepare('SELECT * FROM inspections WHERE id = ? AND org_id = ?').get(req.params.id, req.orgId);
   if (!insp) return res.status(404).json({ error: 'Not found' });
 
   const hasFail = db.prepare("SELECT COUNT(*) as c FROM check_items ci JOIN check_groups cg ON ci.group_id = cg.id WHERE cg.inspection_id = ? AND ci.status = 'failed'").get(req.params.id).c > 0;
