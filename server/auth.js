@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 import { captureServer } from './posthog.js';
+import { report as storeReport } from './store-activity.js';
 
 export function setupAuth(db) {
   // Create auth tables
@@ -117,6 +118,7 @@ export function setupAuthRoutes(app, db) {
 
     // Analytics: login.
     captureServer('app_login', user.email, {}, { account: user.org_id });
+    void storeReport(user.email, 'login'); // store lifecycle: last_login_at
 
     res.json({
       sessionId,

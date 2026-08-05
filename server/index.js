@@ -9,6 +9,7 @@ import { existsSync } from 'fs';
 import db from './db.js';
 import { setupAuth, authMiddleware, setupAuthRoutes } from './auth.js';
 import { captureServer } from './posthog.js';
+import { report as storeReport } from './store-activity.js';
 
 // Initialize auth tables and seed demo data
 setupAuth(db);
@@ -698,6 +699,10 @@ app.post('/api/inspections/:id/submit', (req, res) => {
   if (actorId) {
     captureServer('core_action_performed', actorId, { action: 'inspection_submitted', result: newStatus }, { account: req.orgId });
   }
+  // Deliberately req.user.email, not actorId: that falls back to an org id,
+  // and the store matches customers on email alone, so an id would
+  // silently never match a subscription.
+  void storeReport(req.user?.email, 'action', 'inspection_submitted');
 
   res.json({ status: newStatus });
 });
