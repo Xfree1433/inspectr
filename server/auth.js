@@ -1,7 +1,25 @@
 import bcrypt from 'bcryptjs';
+import { timingSafeEqual } from 'crypto';
 import { v4 as uuid } from 'uuid';
 import { captureServer } from './posthog.js';
 import { report as storeReport } from './store-activity.js';
+
+// Security audit 2026-10-26: /api/auth/register had no gate, so anyone could
+// create a paid org + admin, or pre-register a buyer's email so the real
+// purchase hit 409. In production only the PF9 store, presenting the shared
+// secret, can register (same contract as FLOWTRACK). Fails closed: no
+// PROVISION_SECRET configured means no bypass exists.
+function registrationAllowed(req) {
+  if (process.env.ALLOW_PUBLIC_REGISTRATION === 'true') return true;
+  if (process.env.NODE_ENV !== 'production') return true;
+  const secret = process.env.PROVISION_SECRET;
+  const presented = req.headers['x-pf9-provision-secret'];
+  if (!secret || !presented) return false;
+  const a = Buffer.from(String(presented));
+  const b = Buffer.from(secret);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 export function setupAuth(db) {
   // Create auth tables
@@ -163,6 +181,9 @@ export function setupAuthRoutes(app, db) {
 
   // Register (creates new org + admin user)
   app.post('/api/auth/register', (req, res) => {
+    if (!registrationAllowed(req)) {
+      return res.status(403).json({ error: 'Registration is by subscription only. Contact sales to get started.' });
+    }
     const { email, password, name, companyName } = req.body;
     if (!email || !password || !name || !companyName) {
       return res.status(400).json({ error: 'All fields required' });
