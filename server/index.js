@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { timingSafeEqual } from 'crypto';
 import { v4 as uuid } from 'uuid';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -34,11 +35,21 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 
 // Rate limit auth endpoints to slow brute-force attempts.
+// Keyed on the visitor's real address (security audit 2026-10-26): INSPECTR
+// sits behind a Cloudflare tunnel and 'trust proxy' is unset, so req.ip is the
+// tunnel and every visitor shared ONE bucket - 20 bad logins from anyone
+// locked out everyone. Cloudflare puts the visitor's address in
+// CF-Connecting-IP; fall back to req.ip when it is absent (local/dev).
+// ipKeyGenerator collapses an IPv6 address to its /56 so one host cannot
+// rotate through its own subnet to dodge the limit.
 app.use('/api/auth/login', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(String(req.headers['cf-connecting-ip'] || '').trim() || req.ip || ''),
+  // X-Forwarded-For is deliberately not used, so its presence is not an error.
+  validate: { xForwardedForHeader: false },
   message: { error: 'Too many login attempts. Try again in a few minutes.' },
 }));
 
@@ -49,7 +60,8 @@ app.get('/api/health', (req, res) => {
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
     res.json({ status: 'ok', database: 'connected', migrations: { system: 'manual', count: tables.length, latest: null } });
   } catch (e) {
-    res.status(503).json({ status: 'degraded', database: 'error', error: String(e).slice(0, 200) });
+    console.error('[health] database check failed:', e);
+    res.status(503).json({ status: 'degraded', database: 'error' });
   }
 });
 
@@ -455,32 +467,51 @@ app.post('/api/inspections', (req, res) => {
   if (templateId && !db.prepare('SELECT 1 FROM templates WHERE id = ? AND org_id = ?').get(templateId, req.orgId)) {
     return res.status(404).json({ error: 'Template not found' });
   }
-  const id = `INS-${String(db.prepare('SELECT COUNT(*) as c FROM inspections WHERE org_id = ?').get(req.orgId).c + 892).padStart(4, '0')}`;
-  db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, company_id, notes, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, companyId || null, notes || '', req.orgId);
-
-  // Create checklist from template and copy any reference photos
-  if (templateId) {
-    const tmplGroups = db.prepare('SELECT * FROM template_groups WHERE template_id = ? ORDER BY sort_order').all(templateId);
-    if (tmplGroups.length > 0) {
-      const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
-      const insItem = db.prepare('INSERT INTO check_items (id, group_id, text, status, sort_order) VALUES (?, ?, ?, ?, ?)');
-      const insRefPhoto = db.prepare('INSERT INTO check_item_photos (id, check_item_id, data_url, is_reference) VALUES (?, ?, ?, 1)');
-      tmplGroups.forEach((tg, gi) => {
-        const gid = insGroup.run(id, tg.name, gi).lastInsertRowid;
-        const tmplItems = db.prepare('SELECT * FROM template_items WHERE group_id = ? ORDER BY sort_order').all(tg.id);
-        tmplItems.forEach((ti, ii) => {
-          const ciId = uuid();
-          insItem.run(ciId, gid, ti.text, '', ii);
-          const tmplPhotos = db.prepare('SELECT data_url FROM template_item_photos WHERE template_item_id = ?').all(ti.id);
-          tmplPhotos.forEach(p => insRefPhoto.run(uuid(), ciId, p.data_url));
-        });
-      });
-    }
-  }
+  // inspections.id is the table's GLOBAL primary key, so the number must be
+  // unique across every org (security audit 2026-10-26). It used to be the
+  // org's own count + 892, so the second customer's first inspection reused
+  // the first customer's INS-0892 and failed with a 500 - and the count also
+  // reused a live id after any delete. Now: one past the highest INS number in
+  // the whole table, read and written in one IMMEDIATE transaction so two
+  // requests cannot pick the same number. The INS-#### format the UI shows is
+  // unchanged; numbers within one org are increasing but not consecutive.
+  let id;
+  db.transaction(() => {
+    id = nextInspectionId();
+    db.prepare('INSERT INTO inspections (id, site, type, status, inspector_id, company_id, notes, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, site, type, 'pending', inspectorId, companyId || null, notes || '', req.orgId);
+    if (templateId) createChecklistFromTemplate(id, templateId);
+  }).immediate();
 
   addFeedEvent('warn', id, `Created for ${site}`, '', req.orgId);
   res.status(201).json({ id });
 });
+
+const maxInspectionNumber = db.prepare("SELECT MAX(CAST(SUBSTR(id, 5) AS INTEGER)) AS n FROM inspections WHERE id LIKE 'INS-%'");
+
+function nextInspectionId() {
+  // Never below the old starting point (INS-0892), so ids stay familiar.
+  const n = Math.max(maxInspectionNumber.get().n || 0, 891) + 1;
+  return `INS-${String(n).padStart(4, '0')}`;
+}
+
+// Create checklist from template and copy any reference photos
+function createChecklistFromTemplate(id, templateId) {
+  const tmplGroups = db.prepare('SELECT * FROM template_groups WHERE template_id = ? ORDER BY sort_order').all(templateId);
+  if (tmplGroups.length === 0) return;
+  const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
+  const insItem = db.prepare('INSERT INTO check_items (id, group_id, text, status, sort_order) VALUES (?, ?, ?, ?, ?)');
+  const insRefPhoto = db.prepare('INSERT INTO check_item_photos (id, check_item_id, data_url, is_reference) VALUES (?, ?, ?, 1)');
+  tmplGroups.forEach((tg, gi) => {
+    const gid = insGroup.run(id, tg.name, gi).lastInsertRowid;
+    const tmplItems = db.prepare('SELECT * FROM template_items WHERE group_id = ? ORDER BY sort_order').all(tg.id);
+    tmplItems.forEach((ti, ii) => {
+      const ciId = uuid();
+      insItem.run(ciId, gid, ti.text, '', ii);
+      const tmplPhotos = db.prepare('SELECT data_url FROM template_item_photos WHERE template_item_id = ?').all(ti.id);
+      tmplPhotos.forEach(p => insRefPhoto.run(uuid(), ciId, p.data_url));
+    });
+  });
+}
 
 app.delete('/api/inspections/:id', (req, res) => {
   const insp = db.prepare('SELECT * FROM inspections WHERE id = ? AND org_id = ?').get(req.params.id, req.orgId);
@@ -740,39 +771,62 @@ function formatTimeAgo(dateStr) {
 }
 
 // ── Demo Reset ──
-app.post('/api/reset-demo', (req, res) => {
-  // Fail closed: require RESET_SECRET to be set AND header to match.
-  // Without this, every smoke-test 500 below masked the fact that anyone
-  // on the network could wipe all data with a single POST.
+// Security audit 2026-10-26: this used to DELETE every org's inspections,
+// failures and checklists and reseed rows with no org at all - one call wiped
+// every paying customer. Now:
+//   - it does not exist (404) unless ENABLE_DEMO_RESET=true, so a leaked
+//     RESET_SECRET is useless on a host that never turned it on;
+//   - the secret is compared in constant time;
+//   - it only touches the seeded demo org (DEMO_ORG_ID) and reseeds into it;
+//   - delete + reseed is ONE transaction, so a failed reseed leaves the
+//     demo as it was instead of empty.
+const DEMO_ORG_ID = 'demo-org'; // seeded by setupAuth() in server/auth.js
+const DEMO_INSPECTION_IDS = ['INS-0891', 'INS-0890', 'INS-0889', 'INS-0888', 'INS-0887', 'INS-0886', 'INS-0885', 'INS-0884'];
+const DEMO_FEED_IDS = ['f-1', 'f-2', 'f-3', 'f-4', 'f-5', 'f-6', 'f-7', 'f-8'];
+
+function resetSecretMatches(presented) {
   const secret = process.env.RESET_SECRET;
-  if (!secret || req.headers['x-reset-secret'] !== secret) {
+  if (!secret || typeof presented !== 'string' || !presented) return false;
+  const a = Buffer.from(presented);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+app.post('/api/reset-demo', (req, res) => {
+  if (process.env.ENABLE_DEMO_RESET !== 'true') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  // Fail closed: require RESET_SECRET to be set AND header to match.
+  if (!resetSecretMatches(req.headers['x-reset-secret'])) {
     return res.status(403).json({ error: 'Forbidden' });
   }
+  if (!db.prepare('SELECT 1 FROM organizations WHERE id = ?').get(DEMO_ORG_ID)) {
+    return res.status(404).json({ error: 'Demo organization not found' });
+  }
   try {
-    // Wipe all user-generated data, keep seed tables intact
-    db.transaction(() => {
-      db.prepare('DELETE FROM feed_events').run();
-      db.prepare('DELETE FROM failures').run();
-      db.prepare('DELETE FROM check_items').run();
-      db.prepare('DELETE FROM check_groups').run();
-      db.prepare('DELETE FROM inspections').run();
-    })();
-
-    // Re-seed inspections and checklists
-    const insInsp = db.prepare('INSERT INTO inspections (id, site, type, score, status, inspector_id, company_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const org = DEMO_ORG_ID;
+    const insInsp = db.prepare('INSERT INTO inspections (id, site, type, score, status, inspector_id, company_id, created_at, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     const insGroup = db.prepare('INSERT INTO check_groups (inspection_id, name, sort_order) VALUES (?, ?, ?)');
     const insItem = db.prepare('INSERT INTO check_items (id, group_id, text, status, fail_note, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
-    const insFeed = db.prepare('INSERT INTO feed_events (id, time, color, inspection_id, message, tag) VALUES (?, ?, ?, ?, ?, ?)');
+    const insFeed = db.prepare('INSERT INTO feed_events (id, time, color, inspection_id, message, tag, org_id) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    const inList = (ids) => ids.map(() => '?').join(', ');
 
     db.transaction(() => {
-      insInsp.run('INS-0891', 'Riverside Pump Station #4', 'STRUCTURAL', 61, 'pending', 'mo', 'co-1', '2024-12-06T12:55:00');
-      insInsp.run('INS-0890', 'Harbor Bridge Section 7', 'CIVIL / BRIDGE', 94, 'pass', 'sr', 'co-2', '2024-12-06T13:10:00');
-      insInsp.run('INS-0889', 'Northgate Substation', 'ELECTRICAL', 41, 'fail', 'tk', 'co-3', '2024-12-06T11:30:00');
-      insInsp.run('INS-0888', 'Eastfield Water Treatment', 'PROCESS', 88, 'pass', 'al', 'co-4', '2024-12-06T10:50:00');
-      insInsp.run('INS-0887', 'Depot B — Bay 12', 'FACILITY', 76, 'pass', 'cb', 'co-5', '2024-12-06T09:10:00');
-      insInsp.run('INS-0886', 'Terminal 3 Apron', 'PAVEMENT', 55, 'fail', 'jw', 'co-5', '2024-12-06T08:30:00');
-      insInsp.run('INS-0885', 'Grid Substation West', 'ELECTRICAL', 91, 'pass', 'sr', 'co-3', '2024-12-05T14:00:00');
-      insInsp.run('INS-0884', 'Central Waste Facility', 'ENVIRONMENTAL', 83, 'pass', 'tk', 'co-4', '2024-12-05T11:00:00');
+      // Only the demo org's rows. Checklists, check items, item photos and
+      // failures go with their inspection via ON DELETE CASCADE. Seed ids left
+      // with NO org by the old version of this route are invisible to every
+      // tenant; they are cleared too, or the reseed below would collide.
+      db.prepare(`DELETE FROM feed_events WHERE org_id = ? OR ((org_id = '' OR org_id IS NULL) AND id IN (${inList(DEMO_FEED_IDS)}))`).run(org, ...DEMO_FEED_IDS);
+      db.prepare(`DELETE FROM inspections WHERE org_id = ? OR ((org_id = '' OR org_id IS NULL) AND id IN (${inList(DEMO_INSPECTION_IDS)}))`).run(org, ...DEMO_INSPECTION_IDS);
+
+      insInsp.run('INS-0891', 'Riverside Pump Station #4', 'STRUCTURAL', 61, 'pending', 'mo', 'co-1', '2024-12-06T12:55:00', org);
+      insInsp.run('INS-0890', 'Harbor Bridge Section 7', 'CIVIL / BRIDGE', 94, 'pass', 'sr', 'co-2', '2024-12-06T13:10:00', org);
+      insInsp.run('INS-0889', 'Northgate Substation', 'ELECTRICAL', 41, 'fail', 'tk', 'co-3', '2024-12-06T11:30:00', org);
+      insInsp.run('INS-0888', 'Eastfield Water Treatment', 'PROCESS', 88, 'pass', 'al', 'co-4', '2024-12-06T10:50:00', org);
+      insInsp.run('INS-0887', 'Depot B — Bay 12', 'FACILITY', 76, 'pass', 'cb', 'co-5', '2024-12-06T09:10:00', org);
+      insInsp.run('INS-0886', 'Terminal 3 Apron', 'PAVEMENT', 55, 'fail', 'jw', 'co-5', '2024-12-06T08:30:00', org);
+      insInsp.run('INS-0885', 'Grid Substation West', 'ELECTRICAL', 91, 'pass', 'sr', 'co-3', '2024-12-05T14:00:00', org);
+      insInsp.run('INS-0884', 'Central Waste Facility', 'ENVIRONMENTAL', 83, 'pass', 'tk', 'co-4', '2024-12-05T11:00:00', org);
 
       const g1 = insGroup.run('INS-0891', 'Structural Integrity', 0).lastInsertRowid;
       insItem.run('ci-1', g1, 'Foundation crack assessment', 'done', '', 0);
@@ -791,14 +845,14 @@ app.post('/api/reset-demo', (req, res) => {
       insItem.run('ci-12', g3, 'PPE station stocked', '', '', 3);
       insItem.run('ci-13', g3, 'Spill kit inspection', '', '', 4);
 
-      insFeed.run('f-1', '14:22:11', 'fail', 'INS-0891', 'Failure flagged', 'Roof membrane delamination');
-      insFeed.run('f-2', '14:19:04', 'pass', 'INS-0890', 'Inspection PASSED', 'Score 94/100');
-      insFeed.run('f-3', '13:58:32', 'fail', 'INS-0889', 'Inspection FAILED', '3 critical items');
-      insFeed.run('f-4', '13:44:50', 'warn', 'INS-0891', 'Item completed', 'Emergency shutoff valve');
-      insFeed.run('f-5', '13:31:18', 'pass', 'INS-0888', 'Inspection PASSED', 'Score 88/100');
-      insFeed.run('f-6', '12:55:00', 'warn', 'INS-0891', 'Started by M. Okafor', '');
-      insFeed.run('f-7', '12:47:33', 'ghost', 'INS-0887', 'Report submitted for review', '');
-      insFeed.run('f-8', '11:20:09', 'fail', 'INS-0886', 'Inspection FAILED', 'Pavement cracking HIGH');
+      insFeed.run('f-1', '14:22:11', 'fail', 'INS-0891', 'Failure flagged', 'Roof membrane delamination', org);
+      insFeed.run('f-2', '14:19:04', 'pass', 'INS-0890', 'Inspection PASSED', 'Score 94/100', org);
+      insFeed.run('f-3', '13:58:32', 'fail', 'INS-0889', 'Inspection FAILED', '3 critical items', org);
+      insFeed.run('f-4', '13:44:50', 'warn', 'INS-0891', 'Item completed', 'Emergency shutoff valve', org);
+      insFeed.run('f-5', '13:31:18', 'pass', 'INS-0888', 'Inspection PASSED', 'Score 88/100', org);
+      insFeed.run('f-6', '12:55:00', 'warn', 'INS-0891', 'Started by M. Okafor', '', org);
+      insFeed.run('f-7', '12:47:33', 'ghost', 'INS-0887', 'Report submitted for review', '', org);
+      insFeed.run('f-8', '11:20:09', 'fail', 'INS-0886', 'Inspection FAILED', 'Pavement cracking HIGH', org);
     })();
 
     console.log('[demo-reset] Demo data restored', new Date().toISOString());
@@ -809,10 +863,18 @@ app.post('/api/reset-demo', (req, res) => {
   }
 });
 
-// Global error handler — return JSON instead of raw stack traces
+// Global error handler — return JSON instead of raw stack traces.
+// Never echo err.message for server errors: it carried raw SQLite text (e.g.
+// "UNIQUE constraint failed: inspections.id") to the client (security audit
+// 2026-10-26). It is logged here instead. Client errors that are marked safe
+// to show (body-parser's malformed-JSON 400 / too-large 413) keep their status.
 app.use((err, _req, res, _next) => {
   console.error(err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
+  const status = err.status || err.statusCode;
+  if (status >= 400 && status < 500 && err.expose) {
+    return res.status(status).json({ error: err.message });
+  }
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // SPA fallback — serve index.html for non-API routes in production
