@@ -83,6 +83,17 @@ export function setupAuth(db) {
   }
 }
 
+// ── The shared public demo account (security audit 2026-11-14) ──────────────
+// POST /api/auth/demo hands every anonymous visitor the same account. It used
+// to be a full admin of the demo org with no limits, so anyone could fill the
+// database with 10 MB uploads or wipe the demo data. It is now:
+//   * opt-in     - off unless ENABLE_DEMO=true;
+//   * read-only  - authMiddleware refuses every non-GET from it, in one place;
+//   * not reachable by password - only the demo button signs it in.
+export const DEMO_EMAIL = 'demo@acme.com';
+export const demoEnabled = () => process.env.ENABLE_DEMO === 'true';
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 export function authMiddleware(db) {
   return (req, res, next) => {
     // Skip auth for login, register, demo, and health routes
@@ -115,6 +126,14 @@ export function authMiddleware(db) {
       orgId: session.org_id,
     };
     req.orgId = session.org_id;
+
+    if (req.user.email === DEMO_EMAIL) {
+      // Demo switched off: sessions handed out earlier stop working at once.
+      if (!demoEnabled()) return res.status(401).json({ error: 'Session expired' });
+      if (!SAFE_METHODS.has(req.method)) {
+        return res.status(403).json({ error: 'The demo is read-only. Start a trial to make changes.' });
+      }
+    }
     next();
   };
 }
@@ -126,7 +145,8 @@ export function setupAuthRoutes(app, db) {
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
-    if (!user || !bcrypt.compareSync(password, user.hashed_password)) {
+    // The demo account's seed password is in this repo; it never signs in by password.
+    if (!user || user.email === DEMO_EMAIL || !bcrypt.compareSync(password, user.hashed_password)) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -146,8 +166,12 @@ export function setupAuthRoutes(app, db) {
 
   // Demo auto-login
   app.post('/api/auth/demo', (_req, res) => {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get('demo@acme.com');
+    if (!demoEnabled()) return res.status(404).json({ error: 'Not found' });
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(DEMO_EMAIL);
     if (!user) return res.status(500).json({ error: 'Demo account not found' });
+    // Each demo login adds a session row; clear this account's expired ones so
+    // the table cannot grow without bound.
+    db.prepare("DELETE FROM sessions WHERE user_id = ? AND expires_at < ?").run(user.id, new Date().toISOString());
 
     const sessionId = uuid();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -155,7 +179,8 @@ export function setupAuthRoutes(app, db) {
 
     res.json({
       sessionId,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, orgId: user.org_id },
+      // Reported as a viewer whatever the stored role says: the account cannot write.
+      user: { id: user.id, name: user.name, email: user.email, role: 'viewer', orgId: user.org_id, demo: true },
     });
   });
 

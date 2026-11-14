@@ -42,6 +42,17 @@ app.use(express.json({ limit: '10mb' }));
 // CF-Connecting-IP; fall back to req.ip when it is absent (local/dev).
 // ipKeyGenerator collapses an IPv6 address to its /56 so one host cannot
 // rotate through its own subnet to dodge the limit.
+// The public demo button: a handful of sign-ins per visitor is plenty.
+app.use('/api/auth/demo', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(String(req.headers['cf-connecting-ip'] || '').trim() || req.ip || ''),
+  validate: { xForwardedForHeader: false },
+  message: { error: 'Too many demo sign-ins. Try again in a few minutes.' },
+}));
+
 app.use('/api/auth/login', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -358,7 +369,7 @@ app.get('/api/search', (req, res) => {
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
     LEFT JOIN companies c ON i.company_id = c.id
-    LEFT JOIN sites s ON s.name = i.site
+    LEFT JOIN sites s ON s.name = i.site AND s.org_id = i.org_id
     WHERE i.org_id = ? AND (i.id LIKE ? OR i.site LIKE ? OR i.type LIKE ? OR ins.name LIKE ? OR ins.email LIKE ? OR ins.phone LIKE ? OR c.name LIKE ? OR s.address LIKE ? OR s.contact_name LIKE ?)
     ORDER BY i.created_at DESC
     LIMIT 20
@@ -669,7 +680,7 @@ app.get('/api/inspections/:id/report', (req, res) => {
     FROM inspections i
     LEFT JOIN inspectors ins ON i.inspector_id = ins.id
     LEFT JOIN companies c ON ins.company_id = c.id
-    LEFT JOIN sites s ON s.name = i.site
+    LEFT JOIN sites s ON s.name = i.site AND s.org_id = i.org_id
     WHERE i.id = ? AND i.org_id = ?
   `).get(req.params.id, req.orgId);
   if (!insp) return res.status(404).json({ error: 'Not found' });
