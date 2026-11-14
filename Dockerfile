@@ -4,6 +4,12 @@ RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# Optional build-time settings for the browser bundle. Unset (production) they
+# are empty, which the app treats as "use the defaults". The test site passes
+# VITE_POSTHOG_HOST so test clicks never reach the real analytics project.
+ARG VITE_POSTHOG_HOST=
+ARG VITE_DEMO=
+ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST VITE_DEMO=$VITE_DEMO
 RUN npm run build
 
 FROM node:20-alpine AS runner
