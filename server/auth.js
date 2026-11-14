@@ -12,6 +12,12 @@ import { report as storeReport } from './store-activity.js';
 function registrationAllowed(req) {
   if (process.env.ALLOW_PUBLIC_REGISTRATION === 'true') return true;
   if (process.env.NODE_ENV !== 'production') return true;
+  return provisionSecretMatches(req);
+}
+
+// Timing-safe check of the store's X-PF9-Provision-Secret against
+// PROVISION_SECRET. False when either side is missing.
+function provisionSecretMatches(req) {
   const secret = process.env.PROVISION_SECRET;
   const presented = req.headers['x-pf9-provision-secret'];
   if (!secret || !presented) return false;
@@ -19,6 +25,24 @@ function registrationAllowed(req) {
   const b = Buffer.from(secret);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
+}
+
+// ── Store "subscription changed" (POST /api/auth/plan) ──────────────────────
+// When Stripe ends a subscription the store tells us here, and the org it
+// provisioned is locked by billing: organizations.billing_locked_at is set and
+// authMiddleware / login / session refuse every user of that org until the
+// store reports the subscription active again. The lock is an org-level flag,
+// so unlocking never touches users and no org data is changed.
+const LOCK_STATUSES = new Set(['canceled', 'cancelled', 'unpaid', 'incomplete_expired']);
+const UNLOCK_STATUSES = new Set(['active', 'trialing']);
+const ORG_LOCKED_ERROR = {
+  error: 'This account\'s subscription has ended. Renew it in the PF9 store to continue.',
+  code: 'org_locked',
+};
+
+function isOrgLocked(db, orgId) {
+  const row = db.prepare('SELECT billing_locked_at FROM organizations WHERE id = ?').get(orgId);
+  return Boolean(row && row.billing_locked_at);
 }
 
 export function setupAuth(db) {
@@ -63,6 +87,11 @@ export function setupAuth(db) {
     } catch { /* index exists */ }
   }
 
+  // Billing lock set by the store's plan route (NULL = not locked).
+  try {
+    db.exec('ALTER TABLE organizations ADD COLUMN billing_locked_at TEXT DEFAULT NULL');
+  } catch { /* column already exists */ }
+
   // Seed demo org and user if none exist
   const orgCount = db.prepare('SELECT COUNT(*) as c FROM organizations').get().c;
   if (orgCount === 0) {
@@ -99,6 +128,7 @@ export function authMiddleware(db) {
     // Skip auth for login, register, demo, and health routes
     if (req.path === '/api/auth/login' ||
         req.path === '/api/auth/register' ||
+        req.path === '/api/auth/plan' ||
         req.path === '/api/auth/demo' ||
         req.path === '/api/auth/session' ||
         req.path === '/api/auth/logout' ||
@@ -113,9 +143,13 @@ export function authMiddleware(db) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const session = db.prepare(`SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime('now')`).get(sessionId);
+    const session = db.prepare(`SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role, o.billing_locked_at as org_locked_at FROM sessions s JOIN users u ON s.user_id = u.id LEFT JOIN organizations o ON o.id = s.org_id WHERE s.id = ? AND s.expires_at > datetime('now')`).get(sessionId);
     if (!session) {
       return res.status(401).json({ error: 'Session expired' });
+    }
+    // Checked on every request, so a store lock cuts off signed-in users at once.
+    if (session.org_locked_at) {
+      return res.status(403).json(ORG_LOCKED_ERROR);
     }
 
     req.user = {
@@ -148,6 +182,10 @@ export function setupAuthRoutes(app, db) {
     // The demo account's seed password is in this repo; it never signs in by password.
     if (!user || user.email === DEMO_EMAIL || !bcrypt.compareSync(password, user.hashed_password)) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    // Only after the password checks out, so the lock state isn't disclosed.
+    if (isOrgLocked(db, user.org_id)) {
+      return res.status(403).json(ORG_LOCKED_ERROR);
     }
 
     const sessionId = uuid();
@@ -191,6 +229,8 @@ export function setupAuthRoutes(app, db) {
 
     const session = db.prepare(`SELECT s.*, u.name as user_name, u.email as user_email, u.role as user_role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime('now')`).get(sessionId);
     if (!session) return res.json({ user: null });
+    // A billing-locked org reads as signed out; the login page then explains why.
+    if (isOrgLocked(db, session.org_id)) return res.json({ user: null });
 
     res.json({
       user: { id: session.user_id, name: session.user_name, email: session.user_email, role: session.user_role, orgId: session.org_id },
@@ -202,6 +242,37 @@ export function setupAuthRoutes(app, db) {
     const sessionId = req.headers['x-session-id'];
     if (sessionId) db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
     res.json({ ok: true });
+  });
+
+  // Store "subscription changed": lock or unlock the org the store provisioned
+  // for this email. Secret first: 404 when PROVISION_SECRET is unset, 403 when
+  // the header is missing or wrong. Unlike register there is no dev bypass.
+  app.post('/api/auth/plan', (req, res) => {
+    if (!process.env.PROVISION_SECRET) return res.status(404).json({ error: 'Not found' });
+    if (!provisionSecretMatches(req)) return res.status(403).json({ error: 'Forbidden' });
+
+    const body = req.body || {};
+    const email = typeof body.email === 'string' ? body.email.toLowerCase().trim() : '';
+    const status = typeof body.status === 'string' ? body.status.toLowerCase().trim() : '';
+    const want = LOCK_STATUSES.has(status) ? 'locked' : UNLOCK_STATUSES.has(status) ? 'unlocked' : 'none';
+    if (want === 'none' || !email) return res.json({ ok: true, action: 'none' });
+
+    // The store's org is the one register created: this email as its admin.
+    // The shared demo org is never locked.
+    const user = db.prepare('SELECT org_id, role FROM users WHERE email = ?').get(email);
+    if (!user || user.role !== 'admin' || email === DEMO_EMAIL || user.org_id === 'demo-org') {
+      return res.json({ ok: true, action: 'none' });
+    }
+    const orgId = user.org_id;
+    if (want === 'locked') {
+      // COALESCE keeps the first lock time on a repeat.
+      db.prepare("UPDATE organizations SET billing_locked_at = COALESCE(billing_locked_at, datetime('now')) WHERE id = ?").run(orgId);
+    } else {
+      db.prepare('UPDATE organizations SET billing_locked_at = NULL WHERE id = ?').run(orgId);
+    }
+    const users = db.prepare('SELECT COUNT(*) AS c FROM users WHERE org_id = ?').get(orgId).c;
+    console.log(`[plan] store ${want} org ${orgId} (status=${status}, users=${users})`);
+    res.json({ ok: true, action: want, orgId, usersAffected: users });
   });
 
   // Register (creates new org + admin user)
