@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// The hook lives beside its provider on purpose; this only affects dev fast-refresh.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');

@@ -103,6 +103,8 @@ function AuthGate() {
   useEffect(() => {
     // Auto-login for /demo URL
     if (window.location.pathname === '/demo' && !user && !loading) {
+      // One-shot spinner for the /demo auto-login; the request that follows is the external sync.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDemoLoading(true);
       demoLogin().then(() => {
         window.history.replaceState({}, '', '/');
