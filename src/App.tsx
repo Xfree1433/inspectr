@@ -19,6 +19,8 @@ import { HelpModal } from './components/HelpModal';
 import { DemoBanner } from './components/DemoBanner';
 import { SearchBar } from './components/SearchBar';
 import { LoginPage } from './components/LoginPage';
+import { ForgotPasswordPage, ResetPasswordPage } from './components/PasswordResetPages';
+import { RESET_PAGE } from './resetToken';
 import './styles/global.css';
 import './styles/layout.css';
 import './styles/components.css';
@@ -99,6 +101,20 @@ function AppInner() {
 function AuthGate() {
   const { user, loading, demoLogin } = useAuth();
   const [demoLoading, setDemoLoading] = useState(false);
+  // The signed-out screens have their own paths so the emailed link and the
+  // browser's Back button work: /forgot-password and /reset-password.
+  const [path, setPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const go = (to: string) => {
+    window.history.pushState({}, '', to);
+    setPath(to);
+  };
 
   useEffect(() => {
     // Auto-login for /demo URL
@@ -114,6 +130,12 @@ function AuthGate() {
     }
   }, [user, loading, demoLogin]);
 
+  // A reset link works whether or not this browser is signed in. On success
+  // every session of that user has ended, so a full reload lands on sign-in.
+  if (path === RESET_PAGE) {
+    return <ResetPasswordPage onSignIn={() => window.location.assign('/')} onRequestNew={() => go('/forgot-password')} />;
+  }
+
   if (loading || demoLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
@@ -126,7 +148,10 @@ function AuthGate() {
     );
   }
 
-  if (!user) return <LoginPage />;
+  if (!user) {
+    if (path === '/forgot-password') return <ForgotPasswordPage onBack={() => go('/')} />;
+    return <LoginPage onForgotPassword={() => go('/forgot-password')} />;
+  }
 
   return (
     <ProfileProvider>

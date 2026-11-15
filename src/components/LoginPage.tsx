@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-export function LoginPage() {
+export function LoginPage({ onForgotPassword }: { onForgotPassword?: () => void }) {
   const { login, register, demoLogin } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -94,6 +94,11 @@ export function LoginPage() {
             onChange={e => setPassword(e.target.value)} required minLength={6}
             style={inputStyle}
           />
+          {mode === 'login' && onForgotPassword && (
+            <p style={{ textAlign: 'right', margin: '-0.25rem 0 0.75rem' }}>
+              <button type="button" onClick={onForgotPassword} style={linkStyle}>Forgot password?</button>
+            </p>
+          )}
           {error && <p style={{ color: '#dc2626', fontSize: '0.8rem', margin: '0.5rem 0' }}>{error}</p>}
           <button type="submit" disabled={loading} style={{
             ...buttonStyle,

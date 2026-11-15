@@ -132,6 +132,9 @@ export function authMiddleware(db) {
         req.path === '/api/auth/demo' ||
         req.path === '/api/auth/session' ||
         req.path === '/api/auth/logout' ||
+        req.path === '/api/auth/forgot-password' ||
+        req.path === '/api/auth/reset-password' ||
+        req.path === '/api/auth/reset-password/verify' ||
         req.path === '/api/health' ||
         req.path === '/api/reset-demo' ||
         !req.path.startsWith('/api/')) {

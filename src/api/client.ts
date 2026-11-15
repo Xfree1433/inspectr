@@ -55,6 +55,29 @@ export const authApi = {
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
 };
 
+// Password reset: these screens show the server's own message (a 400 says why
+// the link or password was refused), so they read the body on errors too and
+// never take the 401 -> /login path above.
+async function publicPost<T>(path: string, body: unknown): Promise<{ ok: boolean; status: number; data: T & { error?: string } }> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  let data = {} as T & { error?: string };
+  try { data = await res.json(); } catch { /* empty body */ }
+  return { ok: res.ok, status: res.status, data };
+}
+
+export const passwordApi = {
+  forgot: (email: string) =>
+    publicPost<{ message?: string }>('/api/auth/forgot-password', { email }),
+  verify: (token: string) =>
+    publicPost<{ valid?: boolean }>('/api/auth/reset-password/verify', { token }),
+  reset: (token: string, password: string, confirm: string) =>
+    publicPost<{ ok?: boolean }>('/api/auth/reset-password', { token, password, confirm }),
+};
+
 export const api = {
   getStats: () => request<import('../types').Stats>('/api/stats'),
   getInspectors: () => request<import('../types').Inspector[]>('/api/inspectors'),

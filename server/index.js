@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 import db from './db.js';
 import { setupAuth, authMiddleware, setupAuthRoutes } from './auth.js';
+import { setupPasswordResetRoutes } from './password-reset.js';
 import { captureServer } from './posthog.js';
 import { report as storeReport } from './store-activity.js';
 
@@ -64,6 +65,35 @@ app.use('/api/auth/login', rateLimit({
   message: { error: 'Too many login attempts. Try again in a few minutes.' },
 }));
 
+// "Forgot password?": at most 5 requests an hour per visitor. (The 3 emails
+// an hour per address cap lives in password-reset.js.)
+const visitorKey = (req) => ipKeyGenerator(String(req.headers['cf-connecting-ip'] || '').trim() || req.ip || '');
+app.use('/api/auth/forgot-password', rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: visitorKey,
+  validate: { xForwardedForHeader: false },
+  message: { error: 'Too many reset requests. Try again later.' },
+}));
+// Checking a link and setting the password hash with bcrypt; keep it cheap to serve.
+app.use('/api/auth/reset-password', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: visitorKey,
+  validate: { xForwardedForHeader: false },
+  message: { error: 'Too many attempts. Try again in a few minutes.' },
+}));
+
+// The reset link carries its token in the page URL; never pass it on as a Referer.
+app.use('/reset-password', (_req, res, next) => {
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
+
 // DB-touching health check. Returns 503 if the SQLite handle can't satisfy SELECT 1.
 app.get('/api/health', (req, res) => {
   try {
@@ -76,8 +106,9 @@ app.get('/api/health', (req, res) => {
   }
 });
 
-// Auth routes (login, register, demo, session, logout)
+// Auth routes (login, register, demo, session, logout, password reset)
 setupAuthRoutes(app, db);
+setupPasswordResetRoutes(app, db);
 
 // Auth middleware - protects all /api/* routes below this point
 app.use(authMiddleware(db));

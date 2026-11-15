@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import posthog from 'posthog-js'
 import App from './App.tsx'
+import { captureResetToken } from './resetToken'
+
+// Before analytics start: take a password-reset token out of the URL.
+captureResetToken()
 
 // PostHog product analytics (pageviews + autocapture). See pf9-store/POSTHOG_TRACKING_PLAN.md.
 // Shared PF9 project key (fleet default); override at build time via VITE_POSTHOG_KEY.
