@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { passwordApi } from '../api/client';
 import { clearResetToken, getResetToken } from '../resetToken';
+import { Pf9AuthShell } from './Pf9AuthShell';
 
 // "Forgot password?" and "Choose a new password" screens. Same card as the
 // sign-in page (LoginPage.tsx).
@@ -10,35 +11,30 @@ const GENERIC_MESSAGE = "If an account exists for that address, we've emailed a 
 
 function AuthCard({ subtitle, children }: { subtitle: string; children: ReactNode }) {
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#f1f5f9',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
-    }}>
+    <Pf9AuthShell>
       <div style={{
         width: '100%',
         maxWidth: 400,
         padding: '2rem',
         background: '#fff',
+        border: '1px solid #e3dbd2',
         borderRadius: 16,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        boxShadow: '0 24px 48px -24px rgba(33,16,6,0.35)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{
             width: 48, height: 48, borderRadius: 12,
-            background: 'linear-gradient(135deg, #dc2626, #f97316)',
+            background: '#e07122',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 24, margin: '0 auto 0.75rem',
           }}>🔍</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111', margin: 0 }}>INSPECTR</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, letterSpacing: '-0.03em', color: '#1a120d', margin: 0 }}>INSPECTR</h1>
+          <div style={{ width: 48, height: 4, borderRadius: 2, background: '#e07122', margin: '10px auto 0' }} />
           <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: 4 }}>{subtitle}</p>
         </div>
         {children}
       </div>
-    </div>
+    </Pf9AuthShell>
   );
 }
 
@@ -188,7 +184,8 @@ export function ResetPasswordPage({ onSignIn, onRequestNew }: { onSignIn: () => 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.65rem 0.75rem',
-  border: '1px solid #e5e7eb',
+  border: '1px solid #d1c6ba',
+  minHeight: 44,
   borderRadius: 8,
   fontSize: '0.875rem',
   marginBottom: '0.75rem',
@@ -200,18 +197,18 @@ const buttonStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.65rem',
   border: 'none',
-  borderRadius: 8,
+  borderRadius: 9999,
   fontSize: '0.875rem',
   fontWeight: 600,
   cursor: 'pointer',
-  background: '#111',
+  background: '#3b281d',
   color: '#fff',
 };
 
 const linkStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#2563eb',
+  color: '#a14c14',
   cursor: 'pointer',
   fontSize: '0.8rem',
   textDecoration: 'underline',
@@ -219,4 +216,4 @@ const linkStyle: React.CSSProperties = {
 };
 
 const noticeStyle: React.CSSProperties = { color: '#374151', fontSize: '0.875rem', lineHeight: 1.5, margin: '0 0 1rem' };
-const errorStyle: React.CSSProperties = { color: '#dc2626', fontSize: '0.8rem', margin: '0.5rem 0' };
+const errorStyle: React.CSSProperties = { color: '#99001c', fontSize: '0.8rem', margin: '0.5rem 0' };

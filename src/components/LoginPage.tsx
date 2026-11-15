@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { Pf9AuthShell } from './Pf9AuthShell';
 
 export function LoginPage({ onForgotPassword }: { onForgotPassword?: () => void }) {
   const { login, register, demoLogin } = useAuth();
@@ -40,30 +41,25 @@ export function LoginPage({ onForgotPassword }: { onForgotPassword?: () => void 
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#f1f5f9',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
-    }}>
+    <Pf9AuthShell>
       <div style={{
         width: '100%',
         maxWidth: 400,
         padding: '2rem',
         background: '#fff',
+        border: '1px solid #e3dbd2',
         borderRadius: 16,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        boxShadow: '0 24px 48px -24px rgba(33,16,6,0.35)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{
             width: 48, height: 48, borderRadius: 12,
-            background: 'linear-gradient(135deg, #dc2626, #f97316)',
+            background: '#e07122',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 24, margin: '0 auto 0.75rem',
           }}>🔍</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111', margin: 0 }}>INSPECTR</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, letterSpacing: '-0.03em', color: '#1a120d', margin: 0 }}>INSPECTR</h1>
+          <div style={{ width: 48, height: 4, borderRadius: 2, background: '#e07122', margin: '10px auto 0' }} />
           <p style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: 4 }}>
             {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
           </p>
@@ -99,11 +95,12 @@ export function LoginPage({ onForgotPassword }: { onForgotPassword?: () => void 
               <button type="button" onClick={onForgotPassword} style={linkStyle}>Forgot password?</button>
             </p>
           )}
-          {error && <p style={{ color: '#dc2626', fontSize: '0.8rem', margin: '0.5rem 0' }}>{error}</p>}
+          {error && <p style={{ color: '#99001c', fontSize: '0.8rem', margin: '0.5rem 0' }}>{error}</p>}
           <button type="submit" disabled={loading} style={{
             ...buttonStyle,
-            background: '#111',
+            background: '#3b281d',
             color: '#fff',
+            borderRadius: 9999,
             opacity: loading ? 0.6 : 1,
           }}>
             {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
@@ -114,8 +111,10 @@ export function LoginPage({ onForgotPassword }: { onForgotPassword?: () => void 
 
         <button onClick={handleDemo} disabled={loading} style={{
           ...buttonStyle,
-          background: 'linear-gradient(135deg, #dc2626, #f97316)',
-          color: '#fff',
+          background: '#fff',
+          color: '#3b281d',
+          border: '1px solid #d1c6ba',
+          borderRadius: 9999,
           opacity: loading ? 0.6 : 1,
         }}>
           Try Demo
@@ -130,18 +129,19 @@ export function LoginPage({ onForgotPassword }: { onForgotPassword?: () => void 
         </p>
 
         <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#9ca3af', marginTop: '1rem' }}>
-          <a href="https://store.plainspokenfoundrynine.com" style={{ color: '#6b7280', textDecoration: 'underline' }}>Back to Store</a>
+          <a href="https://store.plainspokenfoundrynine.com" style={{ color: '#a14c14', textDecoration: 'underline' }}>Back to Store</a>
         </p>
       </div>
-    </div>
+    </Pf9AuthShell>
   );
 }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '0.65rem 0.75rem',
-  border: '1px solid #e5e7eb',
+  border: '1px solid #d1c6ba',
   borderRadius: 8,
+  minHeight: 44,
   fontSize: '0.875rem',
   marginBottom: '0.75rem',
   outline: 'none',
@@ -161,7 +161,7 @@ const buttonStyle: React.CSSProperties = {
 const linkStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#2563eb',
+  color: '#a14c14',
   cursor: 'pointer',
   fontSize: '0.8rem',
   textDecoration: 'underline',

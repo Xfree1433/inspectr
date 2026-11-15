@@ -1,0 +1,28 @@
+/* PF9 brand (2026-11) for INSPECTR's signed-out screens (sign in, register,
+   forgot / reset password): espresso panel + copper accent, matching the store
+   at store.plainspokenfoundrynine.com and the other PF9 apps' sign-in screens.
+   Only used by Pf9AuthShell. Styling only. */
+.pf9-auth {
+  display: flex; min-height: 100vh; background: #f7f4f1; color: #1a120d;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+.pf9-brand {
+  display: none; width: 50%; flex-direction: column; justify-content: space-between;
+  padding: 3rem; color: #fff; background-color: #211006; box-sizing: border-box;
+  background-image:
+    radial-gradient(48rem 28rem at 90% -10%, rgba(224,113,34,.32), transparent 62%),
+    radial-gradient(36rem 22rem at -10% 110%, rgba(224,113,34,.14), transparent 60%);
+}
+@media (min-width: 992px) { .pf9-brand { display: flex; } }
+.pf9-mark { display: flex; align-items: center; gap: .75rem; }
+.pf9-tile { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: .5rem; background: #e07122; font-size: 1.2rem; }
+.pf9-name { font-size: 1.5rem; font-weight: 600; letter-spacing: .01em; }
+.pf9-brand h2 { font-size: 3rem; font-weight: 600; line-height: 1.05; letter-spacing: -.04em; margin: 0; }
+.pf9-brand h2 span { color: #e5853f; }
+.pf9-lede { margin-top: 1.25rem; max-width: 36rem; font-size: 1.125rem; color: #d1c6ba; }
+.pf9-features { margin: 2.5rem 0 0; padding: 2rem 0 0; border-top: 1px solid rgba(255,255,255,.15); display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 1.5rem; list-style: none; font-size: .875rem; color: #efe9e3; }
+.pf9-features li { display: flex; align-items: center; gap: .5rem; }
+.pf9-features li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #e07122; flex: none; }
+.pf9-foot { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: #a3978b; margin: 0; }
+.pf9-form-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 1rem; }
+.pf9-form-side input:focus { border-color: #e07122 !important; box-shadow: 0 0 0 3px rgba(224,113,34,.18); }
