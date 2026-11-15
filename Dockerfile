@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
@@ -12,7 +12,7 @@ ARG VITE_DEMO=
 ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST VITE_DEMO=$VITE_DEMO
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache python3 make g++
