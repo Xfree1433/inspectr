@@ -7,6 +7,15 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # GitHub's cloud runners can't reach the server's SSH port from the internet.
+      # Join the tailnet for this run only (ephemeral node tagged tag:ci), then SSH over Tailscale.
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
       - name: Deploy to pf9-apps
         uses: appleboy/ssh-action@v1
         with:
