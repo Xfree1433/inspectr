@@ -281,7 +281,7 @@ export function ReportModal({ open, onClose }: Props) {
           api.submitReport(report.id).then(() => {
             toast('Report submitted for approval', 't-pass', '✓');
             onClose();
-          }).catch(() => toast('Failed to submit report', 't-fail', '!'));
+          }).catch((err) => toast(err instanceof Error && !err.message.startsWith('API error') ? err.message : 'Failed to submit report', 't-fail', '!'));
         }}
         onCancel={() => setShowConfirm(false)}
       />

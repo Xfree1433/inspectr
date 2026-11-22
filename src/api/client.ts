@@ -26,7 +26,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     window.location.href = '/login';
     throw new Error('Session expired');
   }
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    // Pass the server's own explanation on when it gives one ("3 checklist
+    // items are not checked yet") instead of a bare status code.
+    const detail = await res.json().catch(() => null);
+    throw new Error((detail && typeof detail.error === 'string' && detail.error) || `API error: ${res.status}`);
+  }
   return res.json();
 }
 

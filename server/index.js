@@ -496,7 +496,12 @@ app.get('/api/inspections', (req, res) => {
 });
 
 app.post('/api/inspections', (req, res) => {
-  const { site, type, inspectorId, notes, templateId, companyId } = req.body;
+  const { site, type, inspectorId, notes, templateId, companyId } = req.body || {};
+  // site and type are NOT NULL columns: without them the insert below threw
+  // and the caller got a 500 instead of being told what was missing.
+  if (typeof site !== 'string' || !site.trim() || typeof type !== 'string' || !type.trim()) {
+    return res.status(400).json({ error: 'Site and inspection type are required' });
+  }
   // Reject FK-injection: every referenced inspector/company/template must
   // belong to the caller's org, else a user could attach (and copy reference
   // photos from) another tenant's records.
@@ -758,13 +763,27 @@ app.post('/api/inspections/:id/submit', (req, res) => {
   const insp = db.prepare('SELECT * FROM inspections WHERE id = ? AND org_id = ?').get(req.params.id, req.orgId);
   if (!insp) return res.status(404).json({ error: 'Not found' });
 
+  // Every item must have an answer (done / failed / N/A) first. "No failed
+  // items" used to be enough, so an inspection nobody had checked a single
+  // item on was submitted as PASSED.
+  const unchecked = db.prepare("SELECT COUNT(*) as c FROM check_items ci JOIN check_groups cg ON ci.group_id = cg.id WHERE cg.inspection_id = ? AND (ci.status IS NULL OR ci.status = '')").get(req.params.id).c;
+  if (unchecked > 0) {
+    return res.status(400).json({
+      error: `${unchecked} checklist item${unchecked === 1 ? ' is' : 's are'} not checked yet. Mark each one Pass, Fail or N/A before submitting.`,
+      unchecked,
+    });
+  }
+
   const hasFail = db.prepare("SELECT COUNT(*) as c FROM check_items ci JOIN check_groups cg ON ci.group_id = cg.id WHERE cg.inspection_id = ? AND ci.status = 'failed'").get(req.params.id).c > 0;
   const newStatus = hasFail ? 'fail' : 'pass';
   db.prepare('UPDATE inspections SET status = ? WHERE id = ?').run(newStatus, req.params.id);
   recalcScore(req.params.id);
+  // Read the score AFTER recalculating it; the feed used to quote the value
+  // loaded before, i.e. the score as of the previous change.
+  const score = db.prepare('SELECT score FROM inspections WHERE id = ?').get(req.params.id).score;
 
   const statusLabel = newStatus === 'pass' ? 'PASSED' : 'FAILED';
-  addFeedEvent(newStatus === 'pass' ? 'pass' : 'fail', req.params.id, `Inspection ${statusLabel}`, `Score ${insp.score}/100`, req.orgId);
+  addFeedEvent(newStatus === 'pass' ? 'pass' : 'fail', req.params.id, `Inspection ${statusLabel}`, `Score ${score}/100`, req.orgId);
 
   // Analytics: submitting an inspection is INSPECTR's core action.
   // Activation = first occurrence (derived in PostHog).
@@ -809,7 +828,11 @@ function formatTimeAgo(dateStr) {
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffHr = Math.floor(diffMin / 60);
   if (diffHr < 24) return `${diffHr}h ${diffMin % 60}m ago`;
-  return 'Yesterday';
+  // Everything older than a day used to read "Yesterday", however old.
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay === 1) return 'Yesterday';
+  if (diffDay < 30) return `${diffDay} days ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // ── Demo Reset ──

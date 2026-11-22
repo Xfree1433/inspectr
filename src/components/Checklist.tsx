@@ -95,7 +95,12 @@ export function Checklist({ onOpenFailModal, onOpenReport }: { onOpenFailModal: 
   };
 
   const handleSubmit = async () => {
-    await api.submitReport(activeInspection.id);
+    try {
+      await api.submitReport(activeInspection.id);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Could not submit the report', 't-fail', '!');
+      return;
+    }
     toast('Report submitted for supervisor approval', 't-pass', '✓');
     refreshAll();
   };
