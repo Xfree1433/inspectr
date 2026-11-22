@@ -10,6 +10,7 @@ import { existsSync } from 'fs';
 import db from './db.js';
 import { setupAuth, authMiddleware, setupAuthRoutes } from './auth.js';
 import { setupPasswordResetRoutes } from './password-reset.js';
+import { startOfAppTodaySql } from './app-day.js';
 import { captureServer } from './posthog.js';
 import { report as storeReport } from './store-activity.js';
 
@@ -448,9 +449,12 @@ app.get('/api/stats', (req, res) => {
   const failures = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='fail' AND org_id = ?").get(req.orgId).c;
   const pending = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='pending' AND org_id = ?").get(req.orgId).c;
   const total = passed + failures + pending;
-  const today = new Date().toISOString().slice(0, 10);
-  const passedToday = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='pass' AND org_id = ? AND created_at >= ?").get(req.orgId, today).c;
-  const failuresToday = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='fail' AND org_id = ? AND created_at >= ?").get(req.orgId, today).c;
+  // Since local midnight (server/app-day.js), and compared as times: created_at
+  // holds both "2026-11-22 14:03:00" and ISO "2026-11-22T14:03:00.000Z" rows,
+  // which do not sort against each other as plain text.
+  const today = startOfAppTodaySql();
+  const passedToday = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='pass' AND org_id = ? AND datetime(created_at) >= datetime(?)").get(req.orgId, today).c;
+  const failuresToday = db.prepare("SELECT COUNT(*) as c FROM inspections WHERE status='fail' AND org_id = ? AND datetime(created_at) >= datetime(?)").get(req.orgId, today).c;
   res.json({
     passed,
     failures,

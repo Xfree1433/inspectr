@@ -29,7 +29,10 @@ export function NewInspectionModal({ open, onClose }: Props) {
       api.getTemplates().then(setTemplates).catch(() => {});
       api.getCompanies().then(setCompanies).catch(() => {});
       const now = new Date();
-      setDate(now.toISOString().split('T')[0]);
+      // Local date to go with the local time below. toISOString() is UTC: from
+      // 6 pm Central the form offered tomorrow's date with today's time.
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setDate(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
       setTime(now.toTimeString().slice(0, 5));
       if (!inspectorId && inspectors.length > 0) setInspectorId(inspectors[0].id);
     }
