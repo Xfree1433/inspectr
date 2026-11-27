@@ -140,7 +140,7 @@ const CSP_POLICY = [
   "frame-ancestors 'self'",
 ].join('; ');
 app.use((req, res, next) => {
-  const mode = String(process.env.PF9_CSP_MODE || 'report').trim().toLowerCase();
+  const mode = String(process.env.PF9_CSP_MODE || 'enforce').trim().toLowerCase();
   // the page and its assets, not the JSON API (a CSP on a JS/CSS file is ignored anyway)
   if ((mode === 'enforce' || mode === 'report') && !req.path.startsWith('/api/') &&
       !res.getHeader('Content-Security-Policy') && !res.getHeader('Content-Security-Policy-Report-Only')) {
