@@ -114,6 +114,41 @@ setupPasswordResetRoutes(app, db);
 // Auth middleware - protects all /api/* routes below this point
 app.use(authMiddleware(db));
 
+// Content-Security-Policy, the "loose" version (Mark, 2026-11-27: "loose on all").
+// Pages may run this app's own scripts and styles (inline too) plus the hosts
+// below, and nothing else; data can't be sent to other hosts, forms can't post
+// off-site, and the page can't be framed by another site. It does NOT stop an
+// injected inline script (that is the "strict" version).
+//   Google Fonts (CSS from fonts.googleapis.com, files from fonts.gstatic.com);
+//   PostHog (posthog-js loads extras from us-assets, sends to us.i);
+//   OpenStreetMap: the address lookup in Settings (nominatim) and its map preview (iframe);
+//   Cloudflare's edge-injected Web Analytics beacon.
+// PF9_CSP_MODE=enforce (default) | report | off, read per request (restart, no rebuild).
+const CSP_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://us-assets.i.posthog.com https://static.cloudflareinsights.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https://us.i.posthog.com https://us-assets.i.posthog.com https://nominatim.openstreetmap.org https://cloudflareinsights.com",
+  "media-src 'self' data: blob:",
+  "worker-src 'self' blob:",
+  "frame-src 'self' https://www.openstreetmap.org",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+app.use((req, res, next) => {
+  const mode = String(process.env.PF9_CSP_MODE || 'report').trim().toLowerCase();
+  // the page and its assets, not the JSON API (a CSP on a JS/CSS file is ignored anyway)
+  if ((mode === 'enforce' || mode === 'report') && !req.path.startsWith('/api/') &&
+      !res.getHeader('Content-Security-Policy') && !res.getHeader('Content-Security-Policy-Report-Only')) {
+    res.setHeader(mode === 'report' ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy', CSP_POLICY);
+  }
+  next();
+});
+
 // Serve production frontend build if it exists
 if (existsSync(distPath)) {
   console.log(`Serving static files from ${distPath}`);
